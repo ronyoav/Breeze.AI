@@ -1,0 +1,122 @@
+:root {
+  /* Mediterranean palette */
+  --turquoise: #1FB8C4;
+  --turquoise-deep: #0F8A95;
+  --turquoise-bright: #2BD0DD;
+  --sea: #053654;
+  --sea-mid: #0E5A85;
+  --lemon: #F5E04A;
+  --lemon-soft: #FFF2A8;
+  --sand: #F5EFE2;
+  --cream: #FAF7F0;
+  --ink: #0A1B2E;
+  --ink-soft: #2C3E50;
+  --grey: #6B7280;
+  --grey-soft: #B8BFC7;
+  --grey-line: #E5E7EB;
+  --white: #FFFFFF;
+
+  /* Surface tokens */
+  --bg: var(--cream);
+  --bg-2: var(--white);
+  --bg-3: #F0EBDF;
+  --text: var(--ink);
+  --text-2: var(--ink-soft);
+  --text-3: var(--grey);
+  --border: var(--grey-line);
+  --accent: var(--turquoise);
+  --accent-deep: var(--turquoise-deep);
+  --accent-soft: #E6F7F8;
+  --hi: var(--lemon);
+
+  /* Type scale */
+  --display: clamp(72px, 11vw, 160px);
+  --h1: clamp(48px, 6vw, 84px);
+  --h2: clamp(32px, 3.6vw, 52px);
+  --h3: clamp(20px, 1.6vw, 24px);
+  --body: 16px;
+  --small: 13px;
+  --micro: 11px;
+
+  /* Spacing & motion */
+  --r-s: 8px;
+  --r: 14px;
+  --r-l: 22px;
+  --r-xl: 32px;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+[data-theme="dark"] {
+  --bg: #08131D;
+  --bg-2: #0F1E2C;
+  --bg-3: #163049;
+  --text: #F2F4F6;
+  --text-2: #C7CFD8;
+  --text-3: #8993A0;
+  --border: #1E3349;
+  --accent: #2BD0DD;
+  --accent-deep: #1FB8C4;
+  --accent-soft: rgba(43, 208, 221, 0.12);
+  --cream: #08131D;
+  --sand: #122336;
+  --white: #0F1E2C;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-variation-settings: "opsz" 14;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+  transition: background 0.35s var(--ease), color 0.35s var(--ease);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+  padding: 0;
+  margin: 0;
+}
+
+input,
+textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: var(--accent);
+  color: #fff;
+}
+
+.serif {
+  font-family: "Instrument Serif", serif;
+  font-style: italic;
+  font-weight: 400;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.5; }
+}
