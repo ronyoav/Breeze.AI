@@ -125,6 +125,7 @@ export default function GeneratingScreen({ answers, onDone, dark, onToggle }: Pr
           }),
         });
         const itinerary: GeneratedItinerary = await res.json();
+        itinerary.pool = allItems;
         setSchedulingStatus("done");
         onDone(itinerary);
       } catch {

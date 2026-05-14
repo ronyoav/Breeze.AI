@@ -4,6 +4,7 @@ import { useState } from "react";
 import { IconBtn, Icon, Wordmark } from "./ui";
 import type { TripAnswers, GeneratedItinerary, ItineraryDay, ItinerarySlot } from "./types";
 
+
 function fmtDisplay(d: string): string {
   const parsed = new Date(d);
   if (isNaN(parsed.getTime())) return d;
@@ -12,17 +13,17 @@ function fmtDisplay(d: string): string {
 
 // ---------- Category config -------------------------------------------
 const CATEGORY_META: Record<string, { icon: string; color: string; label: string }> = {
-  restaurants: { icon: "utensils", color: "#f59e0b", label: "Restaurant" },
-  treks:       { icon: "map",      color: "#22c55e", label: "Hike & Tour" },
-  music:       { icon: "music",    color: "#f43f5e", label: "Live Music" },
-  nightlife:   { icon: "moon",     color: "#8b5cf6", label: "Nightlife" },
-  history:     { icon: "clock",    color: "#3b82f6", label: "History" },
-  sports:      { icon: "activity", color: "#eab308", label: "Sports" },
-  extreme:     { icon: "zap",      color: "#ef4444", label: "Adventure" },
-  beach:       { icon: "sun",      color: "#06b6d4", label: "Beach" },
-  spa:         { icon: "heart",    color: "#ec4899", label: "Spa" },
-  shopping:    { icon: "bag",      color: "#f97316", label: "Shopping" },
-  viral:       { icon: "sparkle",  color: "#a855f7", label: "Viral Spot" },
+  restaurants: { icon: "utensils", color: "#E8960A", label: "Restaurant" },
+  treks:       { icon: "map",      color: "#1B9E8A", label: "Hike & Tour" },
+  music:       { icon: "music",    color: "#D44876", label: "Live Music" },
+  nightlife:   { icon: "moon",     color: "#7055C8", label: "Nightlife" },
+  history:     { icon: "clock",    color: "#1B6EBF", label: "History" },
+  sports:      { icon: "activity", color: "#C8A410", label: "Sports" },
+  extreme:     { icon: "zap",      color: "#D43A18", label: "Adventure" },
+  beach:       { icon: "sun",      color: "#1FB8C4", label: "Beach" },
+  spa:         { icon: "heart",    color: "#CF5BA0", label: "Spa" },
+  shopping:    { icon: "bag",      color: "#E06822", label: "Shopping" },
+  viral:       { icon: "sparkle",  color: "#9940C8", label: "Viral Spot" },
 };
 
 function getCategoryMeta(category: string) {
@@ -332,53 +333,71 @@ function TripSidebar({ answers, days, activeDay, onSelectDay }: {
   );
 }
 
-// ---------- Feedback bar & overlay ------------------------------------
-function FeedbackBar({ onOpen }: { onOpen: () => void }) {
-  const [hover, setHover] = useState(false);
-  return (
-    <div style={{ marginTop: 54, padding: "24px 28px", background: "var(--ink)", color: "#fff", borderRadius: "var(--r-xl)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, flexWrap: "wrap" }}>
-      <div>
-        <div className="serif" style={{ fontSize: 24, lineHeight: 1.2 }}>Love it, or want changes?</div>
-        <div style={{ color: "rgba(255,255,255,.6)", fontSize: 13, marginTop: 4 }}>Tell us in plain English — we&apos;ll re-plan the right slice.</div>
-      </div>
-      <button
-        onClick={onOpen}
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
-        style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 18px", borderRadius: 999, background: hover ? "var(--lemon)" : "rgba(245,224,74,.85)", color: "var(--ink)", border: "none", fontSize: 13, fontWeight: 600, transition: "background .2s", fontFamily: "inherit", cursor: "pointer" }}
-      >
-        <Icon name="sparkle" size={16} />
-        Ask Breeze to fix
-      </button>
-    </div>
-  );
-}
-
-function FeedbackOverlay({ onClose }: { onClose: () => void }) {
+// ---------- Inline revise panel ---------------------------------------
+function RevisePanel({ onSubmit, revising }: { onSubmit: (text: string) => void; revising: boolean }) {
   const [text, setText] = useState("");
+
+  const modeLabel = "Replanning your trip…";
+
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(5,15,25,.55)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
-      <div style={{ background: "var(--bg-2)", borderRadius: "var(--r-xl)", border: "1px solid var(--border)", maxWidth: 600, width: "100%", padding: "36px 36px 28px", position: "relative" }}>
-        <button onClick={onClose} style={{ position: "absolute", top: 18, right: 18, width: 36, height: 36, borderRadius: 999, background: "var(--bg-3)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontFamily: "inherit" }}>
-          <Icon name="x" size={16} />
-        </button>
-        <h2 style={{ margin: "0 0 8px", fontSize: 32, fontWeight: 500, letterSpacing: "-.02em" }}>
-          What would <span className="serif">make this better?</span>
-        </h2>
-        <p style={{ margin: 0, color: "var(--text-3)", fontSize: 14, lineHeight: 1.5 }}>
-          Plain English works — &quot;less walking&quot;, &quot;more seafood&quot;, &quot;swap the museum for a beach day&quot;.
-        </p>
-        <textarea
-          autoFocus value={text} onChange={(e) => setText(e.target.value)}
-          placeholder="e.g. I'd swap the monastery for a long lunch with a view…"
-          style={{ marginTop: 20, width: "100%", minHeight: 120, padding: "14px 16px", fontSize: 15, lineHeight: 1.5, border: "1px solid var(--border)", borderRadius: "var(--r)", outline: "none", background: "var(--bg)", color: "var(--text)", resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }}
-        />
-        <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end", gap: 10 }}>
-          <button onClick={onClose} style={{ padding: "11px 18px", borderRadius: 999, fontSize: 14, fontWeight: 500, color: "var(--text-2)", fontFamily: "inherit", cursor: "pointer", background: "transparent", border: "none" }}>Cancel</button>
-          <button onClick={onClose} style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "14px 22px", background: "var(--ink)", color: "#fff", borderRadius: 999, fontSize: 15, fontWeight: 600, border: "none", fontFamily: "inherit", cursor: "pointer" }}>
-            Re-plan with this <Icon name="sparkle" size={16} />
-          </button>
-        </div>
+    <div style={{
+      marginTop: 54,
+      padding: "32px 36px",
+      background: "linear-gradient(135deg, var(--accent-soft) 0%, var(--bg-2) 100%)",
+      border: "1px solid var(--accent)",
+      borderRadius: "var(--r-xl)",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        <Icon name="sparkle" size={18} stroke="var(--accent-deep)" />
+        <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: "-.01em" }}>Refine your itinerary</span>
+      </div>
+      <p style={{ margin: "0 0 18px", fontSize: 13, color: "var(--text-3)", lineHeight: 1.5 }}>
+        Plain English — &quot;add a beach day&quot;, &quot;more relaxed mornings&quot;, &quot;swap the museum for sunset dinner&quot;.
+      </p>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        disabled={!!revising}
+        placeholder="What would you change?"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && text.trim() && !revising) {
+            onSubmit(text.trim());
+          }
+        }}
+        style={{
+          width: "100%", minHeight: 90, padding: "14px 16px", fontSize: 15, lineHeight: 1.5,
+          border: "1px solid var(--border)", borderRadius: "var(--r)", outline: "none",
+          background: "var(--bg)", color: "var(--text)", resize: "vertical",
+          fontFamily: "inherit", boxSizing: "border-box",
+          opacity: revising ? 0.5 : 1, transition: "opacity .2s",
+        }}
+      />
+      <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 16 }}>
+        {revising ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--accent-deep)", fontSize: 14, fontWeight: 500 }}>
+            <div style={{ width: 8, height: 8, borderRadius: 999, background: "var(--accent)", animation: "pulse 1.2s ease-in-out infinite" }} />
+            {modeLabel}
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={() => { if (text.trim()) { onSubmit(text.trim()); setText(""); } }}
+              disabled={!text.trim()}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 10,
+                padding: "12px 22px", borderRadius: 999, fontSize: 14, fontWeight: 600,
+                background: text.trim() ? "var(--ink)" : "var(--bg-3)",
+                color: text.trim() ? "#fff" : "var(--text-3)",
+                border: "none", fontFamily: "inherit",
+                cursor: text.trim() ? "pointer" : "default",
+                transition: "all .2s var(--ease)",
+              }}
+            >
+              Re-plan with Breeze <Icon name="sparkle" size={16} />
+            </button>
+            <span style={{ fontSize: 12, color: "var(--text-3)" }}>or ⌘↵</span>
+          </>
+        )}
       </div>
     </div>
   );
@@ -389,16 +408,40 @@ interface Props {
   answers: TripAnswers;
   generatedItinerary: GeneratedItinerary;
   onRestart: () => void;
+  onUpdate: (itinerary: GeneratedItinerary) => void;
   dark: boolean;
   onToggle: () => void;
 }
 
-export default function ItineraryScreen({ answers, generatedItinerary, onRestart, dark, onToggle }: Props) {
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
+export default function ItineraryScreen({ answers, generatedItinerary, onRestart, onUpdate, dark, onToggle }: Props) {
+  const [revising, setRevising] = useState<boolean>(false);
   const days = generatedItinerary.days ?? [];
   const [activeDay, setActiveDay] = useState(days[0]?.day ?? 1);
 
   const currentDay = days.find((d) => d.day === activeDay) ?? days[0];
+
+  const handleRevise = async (feedback: string) => {
+    try {
+      setRevising(true);
+      const res = await fetch("/api/revise", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          feedback,
+          itinerary: generatedItinerary,
+          answers,
+          pool: generatedItinerary.pool ?? [],
+        }),
+      });
+      const updated: GeneratedItinerary = await res.json();
+      onUpdate(updated);
+      setActiveDay(updated.days?.[0]?.day ?? 1);
+    } catch {
+      // silently revert on error
+    } finally {
+      setRevising(false);
+    }
+  };
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
@@ -408,22 +451,22 @@ export default function ItineraryScreen({ answers, generatedItinerary, onRestart
         <TripSidebar answers={answers} days={days} activeDay={activeDay} onSelectDay={setActiveDay} />
 
         <main style={{ padding: "36px 48px 120px", minWidth: 0 }}>
-          {days.length === 0 ? (
-            <div style={{ paddingTop: 80, textAlign: "center", color: "var(--text-3)", fontSize: 15 }}>
-              No itinerary generated. Try restarting with different preferences.
-            </div>
-          ) : (
-            <>
-              <DayTabs days={days} activeDay={activeDay} onSelect={setActiveDay} />
-              {currentDay && <DayView day={currentDay} />}
-            </>
-          )}
+          <div style={{ opacity: revising ? 0.4 : 1, pointerEvents: revising ? "none" : "auto", transition: "opacity .3s var(--ease)" }}>
+            {days.length === 0 ? (
+              <div style={{ paddingTop: 80, textAlign: "center", color: "var(--text-3)", fontSize: 15 }}>
+                No itinerary generated. Try restarting with different preferences.
+              </div>
+            ) : (
+              <>
+                <DayTabs days={days} activeDay={activeDay} onSelect={setActiveDay} />
+                {currentDay && <DayView day={currentDay} />}
+              </>
+            )}
+          </div>
 
-          <FeedbackBar onOpen={() => setFeedbackOpen(true)} />
+          <RevisePanel onSubmit={handleRevise} revising={revising} />
         </main>
       </div>
-
-      {feedbackOpen && <FeedbackOverlay onClose={() => setFeedbackOpen(false)} />}
     </div>
   );
 }

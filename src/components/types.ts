@@ -61,4 +61,5 @@ export interface ItineraryDay {
 
 export interface GeneratedItinerary {
   days: ItineraryDay[];
+  pool?: unknown[]; // opaque attraction pool passed back to /api/revise
 }

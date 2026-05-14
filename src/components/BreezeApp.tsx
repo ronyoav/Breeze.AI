@@ -150,6 +150,7 @@ export default function BreezeApp() {
           setGeneratedItinerary({ days: [] });
           goTo("welcome");
         }}
+        onUpdate={(itinerary) => setGeneratedItinerary(itinerary)}
         {...sharedProps}
       />
     );

@@ -95,11 +95,15 @@ function buildSchedulePrompt(params: {
   budget: string;
   interests: string[];
   ages?: string;
+  userRequest?: string;
 }): string {
   const month = getMonthName(params.startDate);
   const ageContext = buildAgeContext(params.ages, params.composition);
+  const userSection = params.userRequest
+    ? `\nHIGHEST PRIORITY — apply this before all other rules:\n"${params.userRequest}"\n`
+    : "";
 
-  return `You are Breeze.ai — a world-class travel planner. Build a personally crafted, day-by-day calendar itinerary from the attraction pool below.
+  return `You are Breeze.ai — a world-class travel planner. Build a personally crafted, day-by-day calendar itinerary from the attraction pool below.${userSection}
 
 TRIP
 Destination: ${params.city} | ${params.days} days starting ${params.startDate} (${month})
@@ -124,6 +128,8 @@ RULES
 8. Day theme: short and evocative, reflecting both geography and group profile.
 9. Descriptions: 1–2 vivid sentences per slot — write as if recommending to a friend.
 
+CRITICAL: You MUST produce exactly ${params.days} day objects in the "days" array — one per day, no more, no less.
+
 Return ONLY valid JSON — no markdown, no explanation:
 {"days":[{"day":1,"date":"Mon May 14","theme":"...","slots":[{"time":"09:30","duration":"2h","title":"...","category":"history","description":"...","address":"...","price":"...","tip":"..."}]}]}
 
@@ -134,7 +140,7 @@ ${JSON.stringify(params.items)}`;
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { items, city, days, startDate, composition, budget, interests, ages } = body;
+    const { items, city, days, startDate, composition, budget, interests, ages, userRequest } = body;
 
     const llmKey = process.env.API_KEY_LLM;
     if (!llmKey) return NextResponse.json({ days: [] }, { status: 500 });
@@ -144,8 +150,8 @@ export async function POST(req: NextRequest) {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${llmKey}` },
       body: JSON.stringify({
         model: "anthropic/claude-3-5-haiku",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: buildSchedulePrompt({ items, city, days, startDate, composition, budget, interests, ages }) }],
+        max_tokens: 8192,
+        messages: [{ role: "user", content: buildSchedulePrompt({ items, city, days, startDate, composition, budget, interests, ages, userRequest }) }],
       }),
     });
 
