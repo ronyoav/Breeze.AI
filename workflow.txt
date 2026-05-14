@@ -1,0 +1,46 @@
+ממחשבה ראשונה - אתם צרכים API ל:
+- להבין איך משתמשים ב MONGODB 
+- OPENAI 4o	
+- טיסות
+- מלונות
+- כרטיסים לאטרקציות - בדיקה של זמנים פנויים לאטרקציות - מניח שאפשר לעשות את זה עם trip advisor או במקרה הרע playwright MCP 
+- דרכי נסיעה - API לתחבצ או השכרת רכבים
+- סוכן ראשי שיודע לתכנן אסטרטגיה לפי קלט של המשתמש ויודע לטרגט מטרות מסוימות - נגיד לפי תקציב וכו'
+- מזג אוויר
+- מסעדות
+
+
+workflow user expirience:
+ask user for source and destination, and days spent in vacation, and date (where you are currently, and where do you want to go) - support multi locations?
+ask user for number of people, and ages (family, babys etc.)
+ask user for travel purpose (buisness, pleassure, bachelor party, gambling).
+if multi location ask user if he has prefernces of locations order, and time spent in each location - if user says it doesnt matter, agent will decide on partitions.
+ask for areas of intrest - so atractions can be chosen accordingly. 
+ask user if: loves parks, loves hiking, loves sport, love theaters, love museoms, loves shopping, food alergies, and prompt him to suggest his own
+ask user if has spesific location that he wants to visit. if yes - ask if has spesific time that he wants.
+ask user if he wants free time allocated (for no scheduled activitys)
+if vacation duration is > 10 days - ask user in what format he wants his schedule (daily, bi-daily, weekly)
+ask if luggage is needed (also here show the agent suggestion if luggage is needed)
+
+
+check with agent for flights - 
+if all flights are without connection - suggest lowest price
+if exists a flight with connetion that is cheaper - prompt user to chose which to take.
+
+
+after that suggest list of attractions, if user agrees on it, start planning inner-country logistics such as hotels, and public transportation
+if he doesnt agrees on it - suggest a new list. prompt user to say exactly what he doesnt like so next suggestion will be more precise.
+
+after agreeing on attraction pool, start planning trip itself
+suggest user a schedule
+prompt him to say what days he likes, what he doesnt, and what he wants to change.
+
+itinerary (vacation schedule) templates:
+includes blocks for food, atractions, transportation - it will be used as a guideline
+
+
+
+
+workflow backend:
+if needed to move between countrys - show suggested rout (flight, etc.) - needs to know source country and destination
+inner country route - including sleep place, food, atrractions etc. including logistics (moving between locations).
