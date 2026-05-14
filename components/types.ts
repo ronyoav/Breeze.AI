@@ -1,7 +1,8 @@
 export interface TripAnswers {
-  departure: string;
+  destination: string;
   dates: { start: string; end: string; days: number };
   composition: string | null;
+  ages?: string;
   budget: string;
   interests: string[];
 }
@@ -16,11 +17,6 @@ export type Screen =
   | "generating"
   | "itinerary";
 
-export interface WeatherData {
-  kind: string;
-  high: number;
-  low: number;
-}
 
 export interface ActivitySlot {
   time: string;
@@ -44,7 +40,6 @@ export interface ItineraryDay {
   date: string;
   area: string;
   subtitle: string;
-  weather: WeatherData;
   cost: number;
   blocks: DayBlock[];
 }
