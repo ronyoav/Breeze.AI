@@ -218,6 +218,9 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
 
   const [customText, setCustomText] = useState("");
 
+  const toTitleCase = (str: string) =>
+    str.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+
   const currentContinent = selections[0];
   const currentCountry = selections[1];
   const currentCities = selections.slice(2);
@@ -265,8 +268,9 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
 
   const submit = () => {
     const finalCities = [...currentCities];
-    if (customText.trim() && !finalCities.includes(customText.trim())) {
-      finalCities.push(customText.trim());
+    const trimmed = toTitleCase(customText.trim());
+    if (trimmed && !finalCities.includes(trimmed)) {
+      finalCities.push(trimmed);
     }
     if (finalCities.length > 0 || (selections.length >= 2 && customText.trim())) {
       onChange(finalCities.join(", "));
@@ -377,7 +381,7 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
           ) : null}
           <input
             value={customText}
-            onChange={(e) => setCustomText(e.target.value)}
+            onChange={(e) => setCustomText(toTitleCase(e.target.value))}
             placeholder={placeholder}
             autoFocus
             onKeyDown={(e) => {
@@ -437,14 +441,23 @@ interface Q2Props {
 }
 
 export function Q_Dates({ value, onChange, onAdvance, onBack, stepIdx, total, dark, onToggle }: Q2Props) {
+  const today = new Date().toISOString().split('T')[0];
+
+  const clampToFuture = (dateStr: string) => (dateStr < today ? today : dateStr);
+
   const [start, setStart] = useState(() => {
-    try { return new Date(value?.start).toISOString().split('T')[0]; }
-    catch { return new Date().toISOString().split('T')[0]; }
+    try { return clampToFuture(new Date(value?.start).toISOString().split('T')[0]); }
+    catch { return today; }
   });
   const [end, setEnd] = useState(() => {
-    try { return new Date(value?.end).toISOString().split('T')[0]; }
+    try { return clampToFuture(new Date(value?.end).toISOString().split('T')[0]); }
     catch { return new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]; }
   });
+
+  const handleStartChange = (newStart: string) => {
+    setStart(newStart);
+    if (end < newStart) setEnd(newStart);
+  };
 
   const fmt = (dStr: string) => {
     try {
@@ -490,7 +503,8 @@ export function Q_Dates({ value, onChange, onAdvance, onBack, stepIdx, total, da
           <input
             type="date"
             value={start}
-            onChange={(e) => setStart(e.target.value)}
+            min={today}
+            onChange={(e) => handleStartChange(e.target.value)}
             style={{ width: "100%", padding: "16px 20px", fontSize: 24, borderRadius: "var(--r)", border: "1px solid var(--border)", background: "var(--bg-2)", color: "var(--text)", outline: "none", fontFamily: "inherit" }}
           />
         </div>
@@ -499,8 +513,8 @@ export function Q_Dates({ value, onChange, onAdvance, onBack, stepIdx, total, da
           <input
             type="date"
             value={end}
-            onChange={(e) => setEnd(e.target.value)}
             min={start}
+            onChange={(e) => setEnd(e.target.value)}
             style={{ width: "100%", padding: "16px 20px", fontSize: 24, borderRadius: "var(--r)", border: "1px solid var(--border)", background: "var(--bg-2)", color: "var(--text)", outline: "none", fontFamily: "inherit" }}
           />
         </div>
