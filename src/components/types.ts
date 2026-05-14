@@ -17,29 +17,23 @@ export type Screen =
   | "generating"
   | "itinerary";
 
-
-export interface ActivitySlot {
-  time: string;
-  duration: string;
-  title: string;
-  desc: string;
-  tag: string;
-  source: string;
-  map: number;
-  area: string;
+// Unified type used across all interest agents
+export interface AttractionItem {
+  id: string;
+  name: string;
+  description: string;
+  address?: string;
+  url?: string;
+  tip?: string;
+  // Concerts
+  date?: string;
+  venue?: string;
+  image?: string;
+  source?: string;
+  // Restaurants
+  cuisine?: string;
+  priceRange?: string;
 }
 
-export interface DayBlock {
-  time: "morning" | "afternoon" | "evening";
-  slots: ActivitySlot[];
-}
-
-export interface ItineraryDay {
-  day: number;
-  weekday: string;
-  date: string;
-  area: string;
-  subtitle: string;
-  cost: number;
-  blocks: DayBlock[];
-}
+// Map of interest id → fetched items
+export type ItineraryData = Record<string, AttractionItem[]>;
