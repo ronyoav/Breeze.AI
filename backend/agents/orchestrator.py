@@ -1,11 +1,9 @@
 import json
-import anthropic
+from utils.llm import client
 
 from agents.attraction_manager import run_attraction_manager
 from agents.scheduler import run_scheduler
 from prompts.orchestrator_prompt import build_orchestrator_prompt, build_feedback_prompt
-
-client = anthropic.Anthropic()
 
 
 async def generate_itinerary(
