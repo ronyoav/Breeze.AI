@@ -76,7 +76,9 @@ async def run_attraction_manager(
     return raw
 
 
-def _extract_json_array(text: str) -> str | None:
+from typing import Optional
+
+def _extract_json_array(text: str) -> Optional[str]:
     start = text.find("[")
     end = text.rfind("]")
     if start != -1 and end != -1:
