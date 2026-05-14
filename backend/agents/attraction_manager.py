@@ -33,11 +33,11 @@ async def run_attraction_manager(
         "restaurants": lambda: fetch_restaurants(city, budget, days),
         "nightlife":   lambda: fetch_nightlife(city, budget),
         "history":     lambda: fetch_history(city),
-        "sports":      lambda: fetch_sports(city),
+        "sports":      lambda: fetch_sports(city, start_date, end_date),
         "extreme":     lambda: fetch_extreme(city),
         "treks":       lambda: fetch_treks(city),
         "beach":       lambda: fetch_beach(city),
-        "spa":         lambda: fetch_spa(city, budget),
+        "spa":         lambda: fetch_spa(city, budget, start_date, end_date),
         "events":      lambda: fetch_events(city, start_date, end_date),
         "shopping":    lambda: fetch_shopping(city, budget),
         "viral":       lambda: fetch_viral(city),
@@ -76,7 +76,9 @@ async def run_attraction_manager(
     return raw
 
 
-def _extract_json_array(text: str) -> str | None:
+from typing import Optional
+
+def _extract_json_array(text: str) -> Optional[str]:
     start = text.find("[")
     end = text.rfind("]")
     if start != -1 and end != -1:

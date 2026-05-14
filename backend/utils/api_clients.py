@@ -14,6 +14,7 @@ def _env(key: str) -> str:
 
 GOOGLE_PLACES_BASE = "https://maps.googleapis.com/maps/api/place"
 FOURSQUARE_BASE = "https://api.foursquare.com/v3/places"
+OVERPASS_BASE = "https://overpass-api.de/api/interpreter"
 OPENTRIPMAP_BASE = "https://api.opentripmap.com/0.1/en/places"
 TICKETMASTER_BASE = "https://app.ticketmaster.com/discovery/v2"
 EVENTBRITE_BASE = "https://www.eventbriteapi.com/v3"
@@ -40,7 +41,7 @@ def openweather_key() -> str:
     return _env("OPENWEATHER_API_KEY")
 
 def tavily_key() -> str:
-    return _env("TAVILY_API_KEY")
+    return _env("API_KEY_TAVILY")
 
 
 async def tavily_search(query: str, max_results: int = 5) -> dict:
