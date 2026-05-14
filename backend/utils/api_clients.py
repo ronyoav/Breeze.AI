@@ -13,6 +13,7 @@ def _env(key: str) -> str:
 
 
 GOOGLE_PLACES_BASE = "https://maps.googleapis.com/maps/api/place"
+GOOGLE_GEOCODE_BASE = "https://maps.googleapis.com/maps/api/geocode"
 FOURSQUARE_BASE = "https://api.foursquare.com/v3/places"
 OVERPASS_BASE = "https://overpass-api.de/api/interpreter"
 OPENTRIPMAP_BASE = "https://api.opentripmap.com/0.1/en/places"
@@ -42,6 +43,20 @@ def openweather_key() -> str:
 
 def tavily_key() -> str:
     return _env("API_KEY_TAVILY")
+
+
+async def geocode_city(city: str) -> tuple[float, float]:
+    async with httpx.AsyncClient(timeout=10) as client:
+        res = await client.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"q": city, "format": "json", "limit": 1},
+            headers={"User-Agent": "BreezeAI/1.0"},
+        )
+        res.raise_for_status()
+        data = res.json()
+    if not data:
+        raise ValueError(f"Could not geocode city: {city}")
+    return float(data[0]["lat"]), float(data[0]["lon"])
 
 
 async def tavily_search(query: str, max_results: int = 5) -> dict:

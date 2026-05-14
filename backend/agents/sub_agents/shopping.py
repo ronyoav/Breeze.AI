@@ -11,9 +11,8 @@ async def fetch_shopping(city: str, budget: str) -> list[Attraction]:
     if cached:
         return [Attraction(**a) for a in cached]
 
-    # For luxury budget, we look for boutiques, otherwise malls and clothes shops
     shop_types = "boutique|jewelry|watches" if budget == "luxury" else "mall|department_store|clothes"
-    
+
     overpass_query = f"""
     [out:json];
     area[name="{city}"]->.searchArea;
@@ -39,16 +38,14 @@ async def fetch_shopping(city: str, budget: str) -> list[Attraction]:
         name = tags.get('name')
         if not name:
             continue
-        
-        # Overpass returns center coordinates for ways and direct lat/lon for nodes
+
         lat = el.get('lat') or (el.get('center', {}).get('lat'))
         lon = el.get('lon') or (el.get('center', {}).get('lon'))
-        
-        # Format the address if available
+
         street = tags.get('addr:street', '')
         housenumber = tags.get('addr:housenumber', '')
         address = f"{housenumber} {street}".strip() if street else city
-        
+
         attr = Attraction(
             id=str(el.get('id', id(el))),
             name=name,

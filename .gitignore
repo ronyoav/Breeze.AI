@@ -131,3 +131,4 @@ out
 # Serverless directories
 .serverless/
 
+.claude/
