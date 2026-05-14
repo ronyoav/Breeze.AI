@@ -2,27 +2,28 @@ import asyncio
 import json
 from utils.api_clients import tavily_search
 from utils.parsers import Attraction
-from utils.llm import async_client, MODEL_HAIKU
+from utils.llm import async_client, MODEL_HAIKU, build_subagent_prompt, extract_json_object
 from cache.redis import get_cached, set_cached, attraction_cache_key
+from langsmith import traceable
 
-_EXTRACT_PROMPT = """You are given raw search results about "{category}" in {city}.
-Extract up to 6 specific venue or experience recommendations from the text below.
-Return a JSON array. Each item must have:
-- "name": exact venue or place name
-- "type": short type label (e.g. casino/spa/theme_park/museum/etc.)
-- "neighborhood": neighborhood or area if mentioned, else ""
-- "description": 1 sentence about what it is or the experience
-- "tip": one practical tip (price range, best time to go, booking required, etc.)
-
-Return ONLY the JSON array, no other text.
-
-Search results:
-{content}
+GENERIC_INSTRUCTIONS = """
+=== GENERIC AGENT SPECIFIC BEHAVIOR ===
+You are a versatile agent handling various requested categories (like theme parks, casinos, museums, etc).
+- FLEXIBILITY: Since your category is dynamic, you must strictly evaluate the results against the `user_profile` interests.
+- BUDGET: Ensure that your recommendations fit the budget tier.
+- SCORING: Calculate the `subAgentScore` based on how well the specific venue aligns with the age demographics and group relation.
 """
 
+@traceable(name="Generic Agent", tags=["subagent", "generic"])
+async def fetch_generic(user_profile: dict, category: str) -> list[Attraction]:
+    location = user_profile.get("location", {})
+    city = location.get("city", "")
+    session_id = user_profile.get("session_id", "default")
+    
+    if not city:
+        return []
 
-async def fetch_generic(city: str, category: str, budget: str) -> list[Attraction]:
-    key = attraction_cache_key(city, f"generic_{category}")
+    key = attraction_cache_key(city, f"generic_{category}_{session_id}")
     cached = await get_cached(key)
     if cached:
         return [Attraction(**a) for a in cached]
@@ -46,43 +47,39 @@ async def fetch_generic(city: str, category: str, budget: str) -> list[Attractio
     if not combined_content:
         return []
 
-    attractions = await _extract_venues(city, category, combined_content)
-    await set_cached(key, [a.to_dict() for a in attractions])
+    system_prompt = build_subagent_prompt(user_profile, category, GENERIC_INSTRUCTIONS)
+    attractions = await _extract_venues(city, category, combined_content, system_prompt)
+    
+    if attractions:
+        await set_cached(key, [a.to_dict() for a in attractions])
+        
     return attractions
 
 
-async def _extract_venues(city: str, category: str, content_blocks: list[str]) -> list[Attraction]:
-    prompt = _EXTRACT_PROMPT.format(
-        category=category,
-        city=city,
-        content="\n\n---\n\n".join(content_blocks),
-    )
+async def _extract_venues(city: str, category: str, content_blocks: list[str], system_prompt: str) -> list[Attraction]:
+    raw_content = "\n\n---\n\n".join(content_blocks)
+    
     response = await async_client.messages.create(
         model=MODEL_HAIKU,
-        max_tokens=2000,
-        messages=[{"role": "user", "content": prompt}],
+        max_tokens=4000,
+        system=system_prompt,
+        messages=[{"role": "user", "content": f"Raw search results for {category} in {city}:\n{raw_content}"}],
     )
-    raw = response.content[0].text.strip()
-
-    try:
-        venues = json.loads(raw)
-    except json.JSONDecodeError:
-        start, end = raw.find("["), raw.rfind("]") + 1
-        venues = json.loads(raw[start:end]) if start != -1 else []
+    
+    text = response.content[0].text if response.content else "{}"
+    json_match = extract_json_object(text)
 
     attractions = []
-    for i, v in enumerate(venues):
-        name = v.get("name", "").strip()
-        if not name:
-            continue
-        neighborhood = v.get("neighborhood", "")
-        attractions.append(Attraction(
-            id=f"generic-{category}-{city}-{i}",
-            name=name,
-            category=f"{category}/{v.get('type', category)}",
-            description=v.get("description", ""),
-            address=f"{neighborhood}, {city}" if neighborhood else city,
-            tip=v.get("tip", ""),
-        ))
+    if json_match:
+        try:
+            parsed_data = json.loads(json_match)
+            parsed_list = parsed_data.get("results", [])
+            for item in parsed_list:
+                item["category"] = category
+                if "id" not in item:
+                    item["id"] = "generated_id"
+                attractions.append(Attraction(**item))
+        except Exception:
+            pass
 
     return attractions

@@ -2,8 +2,9 @@ import asyncio
 import json
 from utils.api_clients import tavily_search
 from utils.parsers import Attraction
-from utils.llm import async_client, MODEL_HAIKU
+from utils.llm import async_client, MODEL_HAIKU, build_subagent_prompt, extract_json_object
 from cache.redis import get_cached, set_cached, attraction_cache_key
+from langsmith import traceable
 
 _QUERIES = [
     ("bars", "best local bars hidden gems {city}"),
@@ -11,24 +12,24 @@ _QUERIES = [
     ("live", "live music jazz rooftop bar {city}"),
 ]
 
-_EXTRACT_PROMPT = """You are given raw search results about nightlife in a city.
-Extract up to 4 specific venue recommendations from the text below.
-Return a JSON array. Each item must have:
-- "name": exact venue name (not article title)
-- "type": one of bar/club/jazz/rooftop/lounge/live_music
-- "neighborhood": neighborhood or area if mentioned, else ""
-- "description": 1 sentence about the vibe or atmosphere
-- "tip": one practical tip (best night to go, signature drink, dress code, etc.)
-
-Return ONLY the JSON array, no other text.
-
-Search results:
-{content}
+NIGHTLIFE_INSTRUCTIONS = """
+=== NIGHTLIFE AGENT SPECIFIC BEHAVIOR ===
+You are evaluating bars, clubs, lounges, and live music venues.
+- AGE DEMOGRAPHICS: Read the `groupStructure`. If the group contains people under 21 (especially in the US), aggressively reject 21+ clubs and bars. Suggest all-ages live music, evening cafes, or family-friendly evening entertainment. If they are 21-25, prioritize high-energy clubs or trendy bars.
+- GROUP MATCHING: If the group relation is "family", avoid wild nightclubs and suggest relaxed lounges or jazz clubs.
+- ENRICHMENT: The `description` field MUST clearly capture the vibe. Tell them exactly what to expect regarding music, crowd, and atmosphere.
 """
 
+@traceable(name="Nightlife Agent", tags=["subagent", "nightlife"])
+async def fetch_nightlife(user_profile: dict) -> list[Attraction]:
+    location = user_profile.get("location", {})
+    city = location.get("city", "")
+    session_id = user_profile.get("session_id", "default")
+    
+    if not city:
+        return []
 
-async def fetch_nightlife(city: str, budget: str) -> list[Attraction]:
-    key = attraction_cache_key(city, "nightlife")
+    key = attraction_cache_key(city, f"nightlife_{session_id}")
     cached = await get_cached(key)
     if cached:
         return [Attraction(**a) for a in cached]
@@ -48,39 +49,38 @@ async def fetch_nightlife(city: str, budget: str) -> list[Attraction]:
     if not combined_content:
         return []
 
-    attractions = await _extract_venues(city, combined_content)
-    await set_cached(key, [a.to_dict() for a in attractions])
+    system_prompt = build_subagent_prompt(user_profile, "nightlife", NIGHTLIFE_INSTRUCTIONS)
+    attractions = await _extract_venues(city, combined_content, system_prompt)
+    
+    if attractions:
+        await set_cached(key, [a.to_dict() for a in attractions])
+        
     return attractions
 
 
-async def _extract_venues(city: str, content_blocks: list[str]) -> list[Attraction]:
-    prompt = _EXTRACT_PROMPT.format(content="\n\n---\n\n".join(content_blocks))
+async def _extract_venues(city: str, content_blocks: list[str], system_prompt: str) -> list[Attraction]:
+    raw_content = "\n\n---\n\n".join(content_blocks)
     response = await async_client.messages.create(
         model=MODEL_HAIKU,
-        max_tokens=1500,
-        messages=[{"role": "user", "content": prompt}],
+        max_tokens=4000,
+        system=system_prompt,
+        messages=[{"role": "user", "content": f"Raw search results for nightlife in {city}:\n{raw_content}"}],
     )
-    raw = response.content[0].text.strip()
-
-    try:
-        venues = json.loads(raw)
-    except json.JSONDecodeError:
-        start, end = raw.find("["), raw.rfind("]") + 1
-        venues = json.loads(raw[start:end]) if start != -1 else []
+    
+    text = response.content[0].text if response.content else "{}"
+    json_match = extract_json_object(text)
 
     attractions = []
-    for i, v in enumerate(venues):
-        name = v.get("name", "").strip()
-        if not name:
-            continue
-        neighborhood = v.get("neighborhood", "")
-        attractions.append(Attraction(
-            id=f"nightlife-{city}-{i}",
-            name=name,
-            category=f"nightlife/{v.get('type', 'bar')}",
-            description=v.get("description", ""),
-            address=f"{neighborhood}, {city}" if neighborhood else city,
-            tip=v.get("tip", ""),
-        ))
+    if json_match:
+        try:
+            parsed_data = json.loads(json_match)
+            parsed_list = parsed_data.get("results", [])
+            for item in parsed_list:
+                item["category"] = "nightlife"
+                if "id" not in item:
+                    item["id"] = "generated_id"
+                attractions.append(Attraction(**item))
+        except Exception as e:
+            pass
 
     return attractions
