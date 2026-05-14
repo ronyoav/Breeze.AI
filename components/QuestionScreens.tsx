@@ -227,7 +227,7 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
 
   if (!currentContinent) {
     options = Object.keys(DESTINATION_TREE);
-    placeholder = "Type continent...";
+    placeholder = "";
   } else if (!currentCountry) {
     options = DESTINATION_TREE[currentContinent] ? Object.keys(DESTINATION_TREE[currentContinent]) : [];
     placeholder = "Type country...";
