@@ -1,5 +1,7 @@
 from utils.llm import async_client, MODEL_HAIKU
+from langsmith import traceable
 
+@traceable(name="Beach Subagent", tags=["subagent", "geography"])
 async def gather_beaches(location: str) -> str:
     """
     Sub-agent responsible for finding beaches around a given location.
