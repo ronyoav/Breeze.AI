@@ -2,6 +2,7 @@ export interface TripAnswers {
   destination: string;
   dates: { start: string; end: string; days: number };
   composition: string | null;
+  ages?: string;
   budget: string;
   interests: string[];
 }

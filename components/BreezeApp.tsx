@@ -82,8 +82,11 @@ export default function BreezeApp() {
   if (screen === "q-composition")
     return (
       <Q_Composition
-        value={answers.composition}
-        onChange={(v) => setAnswer("composition", v)}
+        value={{ comp: answers.composition, ages: answers.ages || "" }}
+        onChange={(v) => {
+          setAnswer("composition", v.comp);
+          setAnswer("ages", v.ages);
+        }}
         onAdvance={handleAdvance}
         onBack={handleBack}
         stepIdx={2}

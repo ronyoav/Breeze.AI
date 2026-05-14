@@ -200,40 +200,42 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
   const [selections, setSelections] = useState<string[]>(() => {
     if (!value) return [];
     
+    const cities = value.split(",").map(s => s.trim()).filter(Boolean);
+    if (cities.length === 0) return [];
+
+    const firstCity = cities[0];
     for (const continent of Object.keys(DESTINATION_TREE)) {
-      if (continent === value) return [continent];
+      if (continent === firstCity) return [continent];
       for (const country of Object.keys(DESTINATION_TREE[continent])) {
-        if (country === value) return [continent, country];
-        if (DESTINATION_TREE[continent][country].includes(value)) {
-          return [continent, country, value];
+        if (country === firstCity) return [continent, country];
+        if (DESTINATION_TREE[continent][country].includes(firstCity)) {
+          return [continent, country, ...cities];
         }
       }
     }
-    return [value];
+    return [...cities];
   });
 
   const [customText, setCustomText] = useState("");
 
   const currentContinent = selections[0];
   const currentCountry = selections[1];
-  const currentCity = selections[2];
+  const currentCities = selections.slice(2);
 
   let options: string[] = [];
   let placeholder = "";
 
-  if (!currentContinent || selections.length === 0) {
+  if (!currentContinent) {
     options = Object.keys(DESTINATION_TREE);
     placeholder = "Type continent...";
-  } else if (!currentCountry || selections.length === 1) {
+  } else if (!currentCountry) {
     options = DESTINATION_TREE[currentContinent] ? Object.keys(DESTINATION_TREE[currentContinent]) : [];
     placeholder = "Type country...";
-  } else if (!currentCity || selections.length === 2) {
+  } else {
     options = (DESTINATION_TREE[currentContinent] && DESTINATION_TREE[currentContinent][currentCountry]) 
       ? DESTINATION_TREE[currentContinent][currentCountry] 
       : [];
     placeholder = "Type city...";
-  } else {
-    placeholder = "";
   }
 
   const matches = customText
@@ -241,22 +243,38 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
     : options;
 
   const handleSelect = (opt: string) => {
-    setSelections([...selections, opt]);
+    if (selections.length >= 2) {
+      if (selections.includes(opt)) {
+        setSelections(selections.filter(s => s !== opt));
+      } else {
+        setSelections([...selections, opt]);
+      }
+    } else {
+      setSelections([...selections, opt]);
+    }
     setCustomText("");
   };
 
-  const handleRemove = () => {
+  const handleRemoveLevel = () => {
     setSelections(selections.slice(0, selections.length - 1));
-    setCustomText("");
+  };
+  
+  const handleRemoveCity = (city: string) => {
+    setSelections(selections.filter(s => s !== city));
   };
 
   const submit = () => {
-    const finalSelection = customText.trim() ? [...selections, customText.trim()] : selections;
-    if (finalSelection.length > 0) {
-      onChange(finalSelection[finalSelection.length - 1]);
+    const finalCities = [...currentCities];
+    if (customText.trim() && !finalCities.includes(customText.trim())) {
+      finalCities.push(customText.trim());
+    }
+    if (finalCities.length > 0 || (selections.length >= 2 && customText.trim())) {
+      onChange(finalCities.join(", "));
       onAdvance();
     }
   };
+
+  const isNextDisabled = selections.length < 2 || (currentCities.length === 0 && !customText.trim());
 
   return (
     <QuestionShell
@@ -268,7 +286,7 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
           Where are you <span className="serif">flying to?</span>
         </>
       }
-      nextDisabled={selections.length === 0 && !customText.trim()}
+      nextDisabled={isNextDisabled}
       onNext={submit}
       onBack={onBack}
       dark={dark}
@@ -289,7 +307,42 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
             borderRadius: "var(--r-l)",
           }}
         >
-          {selections.length > 0 && (
+          {currentCities.length > 0 ? (
+            currentCities.map((city) => (
+              <div
+                key={city}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "var(--accent-soft)",
+                  color: "var(--accent-deep)",
+                  padding: "8px 16px",
+                  borderRadius: 999,
+                  fontSize: 22,
+                  fontWeight: 500,
+                }}
+              >
+                {city}
+                <button
+                  onClick={() => handleRemoveCity(city)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--accent-deep)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 4,
+                    borderRadius: 999,
+                  }}
+                >
+                  <Icon name="x" size={16} />
+                </button>
+              </div>
+            ))
+          ) : selections.length > 0 ? (
             <div
               style={{
                 display: "flex",
@@ -305,7 +358,7 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
             >
               {selections[selections.length - 1]}
               <button
-                onClick={handleRemove}
+                onClick={handleRemoveLevel}
                 style={{
                   background: "transparent",
                   border: "none",
@@ -321,43 +374,41 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
                 <Icon name="x" size={16} />
               </button>
             </div>
-          )}
-          {selections.length < 3 && (
-            <input
-              value={customText}
-              onChange={(e) => setCustomText(e.target.value)}
-              placeholder={placeholder}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  if (customText.trim() && options.includes(customText.trim())) {
-                    handleSelect(customText.trim());
-                  } else if (customText.trim()) {
-                    handleSelect(customText.trim());
-                  } else {
-                    submit();
-                  }
+          ) : null}
+          <input
+            value={customText}
+            onChange={(e) => setCustomText(e.target.value)}
+            placeholder={placeholder}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                if (customText.trim() && options.includes(customText.trim())) {
+                  handleSelect(customText.trim());
+                } else if (customText.trim()) {
+                  handleSelect(customText.trim());
+                } else if (!isNextDisabled) {
+                  submit();
                 }
-              }}
-              style={{
-                flex: 1,
-                minWidth: 200,
-                fontSize: 32,
-                fontWeight: 500,
-                fontVariationSettings: '"opsz" 48',
-                background: "transparent",
-                border: "none",
-                outline: "none",
-                color: "var(--text)",
-                letterSpacing: "-.02em",
-              }}
-            />
-          )}
+              }
+            }}
+            style={{
+              flex: 1,
+              minWidth: 200,
+              fontSize: 32,
+              fontWeight: 500,
+              fontVariationSettings: '"opsz" 48',
+              background: "transparent",
+              border: "none",
+              outline: "none",
+              color: "var(--text)",
+              letterSpacing: "-.02em",
+            }}
+          />
         </div>
         
         <div style={{ marginTop: 22, display: "flex", flexWrap: "wrap", gap: 8 }}>
           {matches.slice(0, 12).map((c) => (
-            <SoftBtn key={c} active={false} onClick={() => handleSelect(c)}>
+            <SoftBtn key={c} active={currentCities.includes(c)} onClick={() => handleSelect(c)}>
               {c}
             </SoftBtn>
           ))}
@@ -482,8 +533,8 @@ function CompositionGlyph({ n, active }: { n: number; active: boolean }) {
 }
 
 interface Q3Props {
-  value: string | null;
-  onChange: (v: string) => void;
+  value: { comp: string | null; ages: string };
+  onChange: (v: { comp: string | null; ages: string }) => void;
   onAdvance: () => void;
   onBack: () => void;
   stepIdx: number;
@@ -493,7 +544,8 @@ interface Q3Props {
 }
 
 export function Q_Composition({ value, onChange, onAdvance, onBack, stepIdx, total, dark, onToggle }: Q3Props) {
-  const [sel, setSel] = useState<string | null>(value || null);
+  const [sel, setSel] = useState<string | null>(value.comp);
+  const [ages, setAges] = useState(value.ages);
 
   return (
     <QuestionShell
@@ -508,7 +560,7 @@ export function Q_Composition({ value, onChange, onAdvance, onBack, stepIdx, tot
       nextDisabled={!sel}
       onNext={() => {
         if (sel) {
-          onChange(sel);
+          onChange({ comp: sel, ages });
           onAdvance();
         }
       }}
@@ -554,15 +606,27 @@ export function Q_Composition({ value, onChange, onAdvance, onBack, stepIdx, tot
           );
         })}
       </div>
+      {sel && (
+        <div style={{ marginTop: 32, maxWidth: 880 }}>
+          <label style={{ display: "block", color: "var(--text-3)", fontSize: 13, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 10 }}>Ages of travelers (optional)</label>
+          <input
+            type="text"
+            value={ages}
+            onChange={(e) => setAges(e.target.value)}
+            placeholder="e.g. 30, 32, 5, 8"
+            style={{ width: "100%", padding: "16px 20px", fontSize: 24, borderRadius: "var(--r)", border: "1px solid var(--border)", background: "var(--bg-2)", color: "var(--text)", outline: "none", fontFamily: "inherit" }}
+          />
+        </div>
+      )}
     </QuestionShell>
   );
 }
 
 // ---------- Q4: Budget ----------------------------------------------
 const BUDGET_TIERS = [
-  { id: "budget", label: "Budget", range: "€40 – 100 / day", detail: "Hostels, street food, public transit" },
-  { id: "comfort", label: "Comfort", range: "€100 – 250 / day", detail: "Boutique stays, good restaurants, taxis" },
-  { id: "luxury", label: "Luxury", range: "€250+ / day", detail: "5★ hotels, fine dining, private tours" },
+  { id: "budget", label: "Budget", detail: "Hostels, street food, public transit" },
+  { id: "comfort", label: "Comfort", detail: "Boutique stays, good restaurants, taxis" },
+  { id: "luxury", label: "Luxury", detail: "5★ hotels, fine dining, private tours" },
 ];
 
 interface Q4Props {
@@ -625,16 +689,6 @@ export function Q_Budget({ value, onChange, onAdvance, onBack, stepIdx, total, d
               <div>
                 <div style={{ fontSize: 28, fontWeight: 600, letterSpacing: "-.02em" }}>{t.label}</div>
                 <div style={{ color: "var(--text-3)", fontSize: 14, marginTop: 4 }}>{t.detail}</div>
-              </div>
-              <div
-                style={{
-                  fontSize: 16,
-                  color: active ? "var(--accent-deep)" : "var(--text-2)",
-                  fontWeight: 500,
-                  fontVariationSettings: '"opsz" 14',
-                }}
-              >
-                {t.range}
               </div>
               <div
                 style={{

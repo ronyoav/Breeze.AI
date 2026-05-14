@@ -63,29 +63,6 @@ export default function WelcomeScreen({ onStart, dark, onToggle }: Props) {
           zIndex: 1,
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            marginBottom: 24,
-            color: "var(--text-3)",
-            fontSize: 13,
-            letterSpacing: ".05em",
-          }}
-        >
-          <span
-            style={{
-              display: "inline-block",
-              width: 8,
-              height: 8,
-              borderRadius: 999,
-              background: "var(--accent)",
-            }}
-          />
-          <span>You are here</span>
-        </div>
-
         <h1
           style={{
             margin: 0,
