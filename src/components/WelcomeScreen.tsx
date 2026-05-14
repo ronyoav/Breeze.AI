@@ -7,10 +7,9 @@ interface Props {
   onStart: () => void;
   dark: boolean;
   onToggle: () => void;
-  city?: string;
 }
 
-export default function WelcomeScreen({ onStart, dark, onToggle, city = "Lisbon" }: Props) {
+export default function WelcomeScreen({ onStart, dark, onToggle }: Props) {
   return (
     <div
       style={{
@@ -64,42 +63,19 @@ export default function WelcomeScreen({ onStart, dark, onToggle, city = "Lisbon"
           zIndex: 1,
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            marginBottom: 24,
-            color: "var(--text-3)",
-            fontSize: 13,
-            letterSpacing: ".05em",
-          }}
-        >
-          <span
-            style={{
-              display: "inline-block",
-              width: 8,
-              height: 8,
-              borderRadius: 999,
-              background: "var(--accent)",
-            }}
-          />
-          <span>You are here</span>
-        </div>
-
         <h1
           style={{
             margin: 0,
             fontSize: "var(--display)",
-            lineHeight: 0.88,
+            lineHeight: 1.05,
             fontWeight: 500,
             letterSpacing: "-.04em",
             fontVariationSettings: '"opsz" 96',
           }}
         >
-          Hello,
+          Plan your
           <br />
-          <span style={{ color: "var(--accent)", fontWeight: 600 }}>{city}</span>
+          <span style={{ color: "var(--accent)", fontWeight: 600 }}>next trip</span>
           <span
             className="serif"
             style={{ fontSize: ".55em", color: "var(--text-3)", marginLeft: ".15em", verticalAlign: "baseline" }}
@@ -130,7 +106,6 @@ export default function WelcomeScreen({ onStart, dark, onToggle, city = "Lisbon"
             Start planning
             <Icon name="arrow-right" size={20} />
           </PrimaryBtn>
-          <span style={{ color: "var(--text-3)", fontSize: 13 }}>~ 90 seconds</span>
         </div>
 
         <div
@@ -147,10 +122,7 @@ export default function WelcomeScreen({ onStart, dark, onToggle, city = "Lisbon"
             textTransform: "uppercase",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <WeatherIcon kind="partly" size={20} />
-            <span style={{ color: "var(--text-2)" }}>24° &nbsp;·&nbsp; light breeze</span>
-          </div>
+          <div></div>
           <div>v 0.1 &nbsp;·&nbsp; preview</div>
         </div>
       </main>

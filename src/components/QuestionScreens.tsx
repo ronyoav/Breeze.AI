@@ -92,7 +92,7 @@ function QuestionShell({
           style={{
             margin: 0,
             fontSize: "var(--h1)",
-            lineHeight: 0.95,
+            lineHeight: 1.15,
             fontWeight: 500,
             letterSpacing: "-.03em",
             maxWidth: "14ch",
@@ -129,8 +129,61 @@ function QuestionShell({
   );
 }
 
-// ---------- Q1: Departure -------------------------------------------
-const POPULAR_DEPARTURES = ["Tel Aviv", "London", "Paris", "Berlin", "New York", "Madrid", "Rome", "Amsterdam"];
+// ---------- Q1: Destination -------------------------------------------
+const DESTINATION_TREE: Record<string, Record<string, string[]>> = {
+  "Europe": {
+    "Italy": ["Rome", "Milan", "Venice", "Florence", "Naples", "Amalfi Coast"],
+    "France": ["Paris", "Lyon", "Nice", "Marseille", "Bordeaux"],
+    "Spain": ["Barcelona", "Madrid", "Seville", "Valencia", "Ibiza"],
+    "UK": ["London", "Edinburgh", "Manchester", "Bath"],
+    "Germany": ["Berlin", "Munich", "Frankfurt", "Hamburg"],
+    "Portugal": ["Lisbon", "Porto", "Faro", "Sintra"],
+    "Greece": ["Athens", "Santorini", "Mykonos", "Crete"],
+    "Netherlands": ["Amsterdam", "Rotterdam", "Utrecht"],
+    "Switzerland": ["Zurich", "Geneva", "Lucerne"],
+    "Croatia": ["Dubrovnik", "Split", "Zagreb"],
+    "Turkey": ["Istanbul", "Cappadocia", "Antalya"],
+    "Iceland": ["Reykjavik"],
+    "Poland": ["Warsaw", "Krakow"]
+  },
+  "Asia": {
+    "Japan": ["Tokyo", "Kyoto", "Osaka", "Hokkaido", "Okinawa"],
+    "Thailand": ["Bangkok", "Chiang Mai", "Phuket", "Koh Samui"],
+    "Vietnam": ["Hanoi", "Ho Chi Minh City", "Da Nang"],
+    "India": ["New Delhi", "Mumbai", "Jaipur", "Goa"],
+    "Indonesia": ["Bali", "Jakarta"],
+    "South Korea": ["Seoul", "Busan", "Jeju"],
+    "Malaysia": ["Kuala Lumpur", "Penang"],
+    "Singapore": ["Singapore"],
+    "Philippines": ["Manila", "Boracay", "Palawan"],
+    "Taiwan": ["Taipei"]
+  },
+  "North America": {
+    "USA": ["New York", "Los Angeles", "Chicago", "Miami", "Las Vegas", "San Francisco"],
+    "Canada": ["Toronto", "Vancouver", "Montreal", "Banff"],
+    "Mexico": ["Mexico City", "Cancun", "Tulum", "Oaxaca"]
+  },
+  "South America": {
+    "Brazil": ["Rio de Janeiro", "São Paulo"],
+    "Argentina": ["Buenos Aires", "Mendoza", "Patagonia"],
+    "Peru": ["Lima", "Cusco", "Machu Picchu"],
+    "Colombia": ["Bogota", "Medellin", "Cartagena"],
+    "Chile": ["Santiago", "Patagonia"]
+  },
+  "Africa": {
+    "South Africa": ["Cape Town", "Johannesburg"],
+    "Morocco": ["Marrakech", "Casablanca", "Fes"],
+    "Egypt": ["Cairo", "Luxor", "Giza"],
+    "Kenya": ["Nairobi", "Mombasa"],
+    "Tanzania": ["Zanzibar", "Serengeti"],
+    "Mauritius": ["Port Louis"]
+  },
+  "Oceania": {
+    "Australia": ["Sydney", "Melbourne", "Brisbane", "Gold Coast"],
+    "New Zealand": ["Auckland", "Queenstown", "Wellington"],
+    "Fiji": ["Nadi", "Suva"]
+  }
+};
 
 interface Q1Props {
   value: string;
@@ -144,17 +197,84 @@ interface Q1Props {
 }
 
 export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total, dark, onToggle }: Q1Props) {
-  const [text, setText] = useState(value || "");
-  const matches = text
-    ? POPULAR_DEPARTURES.filter((c) => c.toLowerCase().includes(text.toLowerCase()))
-    : POPULAR_DEPARTURES;
+  const [selections, setSelections] = useState<string[]>(() => {
+    if (!value) return [];
+    
+    const cities = value.split(",").map(s => s.trim()).filter(Boolean);
+    if (cities.length === 0) return [];
+
+    const firstCity = cities[0];
+    for (const continent of Object.keys(DESTINATION_TREE)) {
+      if (continent === firstCity) return [continent];
+      for (const country of Object.keys(DESTINATION_TREE[continent])) {
+        if (country === firstCity) return [continent, country];
+        if (DESTINATION_TREE[continent][country].includes(firstCity)) {
+          return [continent, country, ...cities];
+        }
+      }
+    }
+    return [...cities];
+  });
+
+  const [customText, setCustomText] = useState("");
+
+  const currentContinent = selections[0];
+  const currentCountry = selections[1];
+  const currentCities = selections.slice(2);
+
+  let options: string[] = [];
+  let placeholder = "";
+
+  if (!currentContinent) {
+    options = Object.keys(DESTINATION_TREE);
+    placeholder = "";
+  } else if (!currentCountry) {
+    options = DESTINATION_TREE[currentContinent] ? Object.keys(DESTINATION_TREE[currentContinent]) : [];
+    placeholder = "Type country...";
+  } else {
+    options = (DESTINATION_TREE[currentContinent] && DESTINATION_TREE[currentContinent][currentCountry]) 
+      ? DESTINATION_TREE[currentContinent][currentCountry] 
+      : [];
+    placeholder = "Type city...";
+  }
+
+  const matches = customText
+    ? options.filter((c) => c.toLowerCase().includes(customText.toLowerCase()))
+    : options;
+
+  const handleSelect = (opt: string) => {
+    if (selections.length >= 2) {
+      if (selections.includes(opt)) {
+        setSelections(selections.filter(s => s !== opt));
+      } else {
+        setSelections([...selections, opt]);
+      }
+    } else {
+      setSelections([...selections, opt]);
+    }
+    setCustomText("");
+  };
+
+  const handleRemoveLevel = () => {
+    setSelections(selections.slice(0, selections.length - 1));
+  };
+  
+  const handleRemoveCity = (city: string) => {
+    setSelections(selections.filter(s => s !== city));
+  };
 
   const submit = () => {
-    if (text.trim()) {
-      onChange(text.trim());
+    const finalCities = [...currentCities];
+    if (customText.trim() && !finalCities.includes(customText.trim())) {
+      finalCities.push(customText.trim());
+    }
+    if (finalCities.length > 0 || (selections.length >= 2 && customText.trim())) {
+      onChange(finalCities.join(", "));
       onAdvance();
     }
   };
+
+  const isNextDisabled = selections.length < 2 || (currentCities.length === 0 && !customText.trim());
 
   return (
     <QuestionShell
@@ -163,41 +283,132 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
       kicker="Question 01"
       title={
         <>
-          Where did you <span className="serif">fly in from?</span>
+          Where are you <span className="serif">flying to?</span>
         </>
       }
-      nextDisabled={!text.trim()}
+      nextDisabled={isNextDisabled}
       onNext={submit}
       onBack={onBack}
       dark={dark}
       onToggle={onToggle}
     >
-      <div style={{ maxWidth: 680 }}>
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Type your home city…"
-          autoFocus
-          onKeyDown={(e) => {
-            if (e.key === "Enter") submit();
-          }}
+      <div style={{ maxWidth: 600 }}>
+        <div
           style={{
+            display: "flex",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 12,
             width: "100%",
-            padding: "22px 26px",
-            fontSize: 32,
-            fontWeight: 500,
-            fontVariationSettings: '"opsz" 48',
+            padding: "16px 26px",
+            minHeight: 82,
             border: "1px solid var(--border)",
             background: "var(--bg-2)",
             borderRadius: "var(--r-l)",
-            outline: "none",
-            color: "var(--text)",
-            letterSpacing: "-.02em",
           }}
-        />
+        >
+          {currentCities.length > 0 ? (
+            currentCities.map((city) => (
+              <div
+                key={city}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "var(--accent-soft)",
+                  color: "var(--accent-deep)",
+                  padding: "8px 16px",
+                  borderRadius: 999,
+                  fontSize: 22,
+                  fontWeight: 500,
+                }}
+              >
+                {city}
+                <button
+                  onClick={() => handleRemoveCity(city)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--accent-deep)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 4,
+                    borderRadius: 999,
+                  }}
+                >
+                  <Icon name="x" size={16} />
+                </button>
+              </div>
+            ))
+          ) : selections.length > 0 ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                background: "var(--accent-soft)",
+                color: "var(--accent-deep)",
+                padding: "8px 16px",
+                borderRadius: 999,
+                fontSize: 22,
+                fontWeight: 500,
+              }}
+            >
+              {selections[selections.length - 1]}
+              <button
+                onClick={handleRemoveLevel}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--accent-deep)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 4,
+                  borderRadius: 999,
+                }}
+              >
+                <Icon name="x" size={16} />
+              </button>
+            </div>
+          ) : null}
+          <input
+            value={customText}
+            onChange={(e) => setCustomText(e.target.value)}
+            placeholder={placeholder}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                if (customText.trim() && options.includes(customText.trim())) {
+                  handleSelect(customText.trim());
+                } else if (customText.trim()) {
+                  handleSelect(customText.trim());
+                } else if (!isNextDisabled) {
+                  submit();
+                }
+              }
+            }}
+            style={{
+              flex: 1,
+              minWidth: 200,
+              fontSize: 32,
+              fontWeight: 500,
+              fontVariationSettings: '"opsz" 48',
+              background: "transparent",
+              border: "none",
+              outline: "none",
+              color: "var(--text)",
+              letterSpacing: "-.02em",
+            }}
+          />
+        </div>
+        
         <div style={{ marginTop: 22, display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {matches.slice(0, 8).map((c) => (
-            <SoftBtn key={c} active={text === c} onClick={() => setText(c)}>
+          {matches.slice(0, 12).map((c) => (
+            <SoftBtn key={c} active={currentCities.includes(c)} onClick={() => handleSelect(c)}>
               {c}
             </SoftBtn>
           ))}
@@ -226,14 +437,35 @@ interface Q2Props {
 }
 
 export function Q_Dates({ value, onChange, onAdvance, onBack, stepIdx, total, dark, onToggle }: Q2Props) {
-  const [days, setDays] = useState(value?.days || 7);
-  const startDate = new Date(2026, 5, 10);
-  const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const endDate = new Date(startDate);
-  endDate.setDate(startDate.getDate() + days - 1);
+  const [start, setStart] = useState(() => {
+    try { return new Date(value?.start).toISOString().split('T')[0]; }
+    catch { return new Date().toISOString().split('T')[0]; }
+  });
+  const [end, setEnd] = useState(() => {
+    try { return new Date(value?.end).toISOString().split('T')[0]; }
+    catch { return new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]; }
+  });
+
+  const fmt = (dStr: string) => {
+    try {
+      const d = new Date(dStr);
+      if (isNaN(d.getTime())) return dStr;
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    } catch {
+      return dStr;
+    }
+  };
+
+  const calcDays = (s: string, e: string) => {
+    const sDate = new Date(s);
+    const eDate = new Date(e);
+    if (isNaN(sDate.getTime()) || isNaN(eDate.getTime())) return 1;
+    const diff = eDate.getTime() - sDate.getTime();
+    return Math.max(1, Math.ceil(diff / (1000 * 3600 * 24)) + 1);
+  };
 
   const submit = () => {
-    onChange({ start: fmt(startDate), end: fmt(endDate), days });
+    onChange({ start: fmt(start), end: fmt(end), days: calcDays(start, end) });
     onAdvance();
   };
 
@@ -244,7 +476,7 @@ export function Q_Dates({ value, onChange, onAdvance, onBack, stepIdx, total, da
       kicker="Question 02"
       title={
         <>
-          How long are you <span className="serif">staying?</span>
+          When are you <span className="serif">going?</span>
         </>
       }
       onNext={submit}
@@ -253,65 +485,28 @@ export function Q_Dates({ value, onChange, onAdvance, onBack, stepIdx, total, da
       onToggle={onToggle}
     >
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 40, maxWidth: 880, alignItems: "center" }}>
-        <div
-          style={{
-            padding: "32px 36px",
-            background: "var(--bg-2)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--r-l)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "baseline", gap: 16 }}>
-            <span
-              style={{
-                fontSize: 88,
-                fontWeight: 600,
-                color: "var(--accent)",
-                lineHeight: 0.85,
-                letterSpacing: "-.03em",
-                fontVariationSettings: '"opsz" 96',
-              }}
-            >
-              {days}
-            </span>
-            <span style={{ fontSize: 24, color: "var(--text-2)" }}>day{days !== 1 ? "s" : ""}</span>
-          </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-            <IconBtn onClick={() => setDays(Math.max(1, days - 1))} label="-1 day">
-              <Icon name="minus" size={18} />
-            </IconBtn>
-            <IconBtn onClick={() => setDays(Math.min(30, days + 1))} label="+1 day">
-              <Icon name="plus" size={18} />
-            </IconBtn>
-            <div style={{ display: "flex", gap: 6, marginLeft: 8 }}>
-              {[3, 5, 7, 10, 14].map((n) => (
-                <SoftBtn key={n} active={days === n} onClick={() => setDays(n)}>
-                  {n}
-                </SoftBtn>
-              ))}
-            </div>
-          </div>
-        </div>
-
         <div>
-          <div
-            style={{
-              color: "var(--text-3)",
-              fontSize: 13,
-              letterSpacing: ".08em",
-              textTransform: "uppercase",
-              marginBottom: 14,
-            }}
-          >
-            Your dates
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ fontSize: 32, fontWeight: 500, letterSpacing: "-.02em" }}>{fmt(startDate)}</div>
-            <span style={{ color: "var(--text-3)" }}>→</span>
-            <div style={{ fontSize: 32, fontWeight: 500, letterSpacing: "-.02em" }}>{fmt(endDate)}</div>
-          </div>
-          <div style={{ marginTop: 8, color: "var(--text-3)", fontSize: 14 }}>2026</div>
+          <label style={{ display: "block", color: "var(--text-3)", fontSize: 13, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 10 }}>Start Date</label>
+          <input
+            type="date"
+            value={start}
+            onChange={(e) => setStart(e.target.value)}
+            style={{ width: "100%", padding: "16px 20px", fontSize: 24, borderRadius: "var(--r)", border: "1px solid var(--border)", background: "var(--bg-2)", color: "var(--text)", outline: "none", fontFamily: "inherit" }}
+          />
         </div>
+        <div>
+          <label style={{ display: "block", color: "var(--text-3)", fontSize: 13, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 10 }}>End Date</label>
+          <input
+            type="date"
+            value={end}
+            onChange={(e) => setEnd(e.target.value)}
+            min={start}
+            style={{ width: "100%", padding: "16px 20px", fontSize: 24, borderRadius: "var(--r)", border: "1px solid var(--border)", background: "var(--bg-2)", color: "var(--text)", outline: "none", fontFamily: "inherit" }}
+          />
+        </div>
+      </div>
+      <div style={{ marginTop: 32, fontSize: 18, color: "var(--text-2)" }}>
+        Duration: <strong style={{ color: "var(--accent)", fontSize: 24, padding: "0 6px" }}>{calcDays(start, end)}</strong> days
       </div>
     </QuestionShell>
   );
@@ -338,8 +533,8 @@ function CompositionGlyph({ n, active }: { n: number; active: boolean }) {
 }
 
 interface Q3Props {
-  value: string | null;
-  onChange: (v: string) => void;
+  value: { comp: string | null; ages: string };
+  onChange: (v: { comp: string | null; ages: string }) => void;
   onAdvance: () => void;
   onBack: () => void;
   stepIdx: number;
@@ -349,7 +544,8 @@ interface Q3Props {
 }
 
 export function Q_Composition({ value, onChange, onAdvance, onBack, stepIdx, total, dark, onToggle }: Q3Props) {
-  const [sel, setSel] = useState<string | null>(value || null);
+  const [sel, setSel] = useState<string | null>(value.comp);
+  const [ages, setAges] = useState(value.ages);
 
   return (
     <QuestionShell
@@ -364,7 +560,7 @@ export function Q_Composition({ value, onChange, onAdvance, onBack, stepIdx, tot
       nextDisabled={!sel}
       onNext={() => {
         if (sel) {
-          onChange(sel);
+          onChange({ comp: sel, ages });
           onAdvance();
         }
       }}
@@ -410,15 +606,27 @@ export function Q_Composition({ value, onChange, onAdvance, onBack, stepIdx, tot
           );
         })}
       </div>
+      {sel && (
+        <div style={{ marginTop: 32, maxWidth: 880 }}>
+          <label style={{ display: "block", color: "var(--text-3)", fontSize: 13, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 10 }}>Ages of travelers (optional)</label>
+          <input
+            type="text"
+            value={ages}
+            onChange={(e) => setAges(e.target.value)}
+            placeholder="e.g. 30, 32, 5, 8"
+            style={{ width: "100%", padding: "16px 20px", fontSize: 24, borderRadius: "var(--r)", border: "1px solid var(--border)", background: "var(--bg-2)", color: "var(--text)", outline: "none", fontFamily: "inherit" }}
+          />
+        </div>
+      )}
     </QuestionShell>
   );
 }
 
 // ---------- Q4: Budget ----------------------------------------------
 const BUDGET_TIERS = [
-  { id: "budget", label: "Budget", range: "€40 – 100 / day", detail: "Hostels, street food, public transit" },
-  { id: "comfort", label: "Comfort", range: "€100 – 250 / day", detail: "Boutique stays, good restaurants, taxis" },
-  { id: "luxury", label: "Luxury", range: "€250+ / day", detail: "5★ hotels, fine dining, private tours" },
+  { id: "budget", label: "Budget", detail: "Hostels, street food, public transit" },
+  { id: "comfort", label: "Comfort", detail: "Boutique stays, good restaurants, taxis" },
+  { id: "luxury", label: "Luxury", detail: "5★ hotels, fine dining, private tours" },
 ];
 
 interface Q4Props {
@@ -481,16 +689,6 @@ export function Q_Budget({ value, onChange, onAdvance, onBack, stepIdx, total, d
               <div>
                 <div style={{ fontSize: 28, fontWeight: 600, letterSpacing: "-.02em" }}>{t.label}</div>
                 <div style={{ color: "var(--text-3)", fontSize: 14, marginTop: 4 }}>{t.detail}</div>
-              </div>
-              <div
-                style={{
-                  fontSize: 16,
-                  color: active ? "var(--accent-deep)" : "var(--text-2)",
-                  fontWeight: 500,
-                  fontVariationSettings: '"opsz" 14',
-                }}
-              >
-                {t.range}
               </div>
               <div
                 style={{
