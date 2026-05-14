@@ -97,7 +97,7 @@ async def _enrich_from_wiki(el: dict, city: str) -> Attraction:
                     # Extract image url if available
                     thumbnail = page_data.get("thumbnail", {})
                     if thumbnail and "source" in thumbnail:
-                        attr.image_url = thumbnail["source"]
+                        attr.imageurl = thumbnail["source"]
                         
                     break
     except Exception:
