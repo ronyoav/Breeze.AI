@@ -103,7 +103,7 @@ export default function GeneratingScreen({ answers, onDone, dark, onToggle }: Pr
           style={{
             margin: 0,
             fontSize: "var(--display)",
-            lineHeight: 0.88,
+            lineHeight: 1.05,
             fontWeight: 500,
             letterSpacing: "-.04em",
             color: "var(--accent)",
@@ -111,7 +111,7 @@ export default function GeneratingScreen({ answers, onDone, dark, onToggle }: Pr
             textAlign: "center",
           }}
         >
-          Lisbon
+          {answers.destination}
         </h1>
 
         <div style={{ marginTop: 14, color: "var(--text-2)", fontSize: 18, textAlign: "center" }}>
@@ -186,7 +186,7 @@ export default function GeneratingScreen({ answers, onDone, dark, onToggle }: Pr
                     fontSize: 17,
                     fontWeight: active ? 600 : 500,
                     color: done ? "var(--text-2)" : active ? "var(--text)" : "var(--text-3)",
-                    textDecoration: done ? "line-through" : "none",
+                    textDecorationLine: done ? "line-through" : "none",
                     textDecorationColor: "rgba(10,27,46,.2)",
                   }}
                 >
