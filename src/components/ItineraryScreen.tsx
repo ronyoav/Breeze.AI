@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { IconBtn, Icon, Wordmark } from "./ui";
-import { CityMap, WeatherIcon } from "./ui/svgs";
+import { CityMap } from "./ui/svgs";
 import type { TripAnswers, ItineraryDay, ActivitySlot, DayBlock } from "./types";
 
 // ---------- Static itinerary data -----------------------------------
@@ -10,7 +10,7 @@ const ITINERARY: ItineraryDay[] = [
   {
     day: 1, weekday: "Tuesday", date: "Jun 10",
     area: "Alfama · Chiado", subtitle: "Arrival & old town",
-    weather: { kind: "sun", high: 26, low: 18 }, cost: 180,
+    cost: 180,
     blocks: [
       { time: "morning", slots: [
         { time: "10:00", duration: "1h", title: "Check-in · Hotel da Baixa", desc: "Quiet boutique on Rua dos Fanqueiros. 10-min walk from Praça do Comércio.", tag: "Stay", source: "Booking", map: 0, area: "Baixa" },
@@ -28,7 +28,7 @@ const ITINERARY: ItineraryDay[] = [
   {
     day: 2, weekday: "Wednesday", date: "Jun 11",
     area: "Bairro Alto · Príncipe Real", subtitle: "Slow food & viewpoints",
-    weather: { kind: "sun", high: 27, low: 19 }, cost: 215,
+    cost: 215,
     blocks: [
       { time: "morning", slots: [
         { time: "09:30", duration: "1h", title: "Time Out Market", desc: "Start with a bica and a fresh pastel — the breakfast counter at the back.", tag: "Bite", source: "Foursquare", map: 5, area: "Cais do Sodré" },
@@ -46,7 +46,7 @@ const ITINERARY: ItineraryDay[] = [
   {
     day: 3, weekday: "Thursday", date: "Jun 12",
     area: "Sintra (day trip)", subtitle: "Castles in the mist",
-    weather: { kind: "partly", high: 22, low: 16 }, cost: 95,
+    cost: 95,
     blocks: [
       { time: "morning", slots: [
         { time: "08:30", duration: "40 min", title: "Train · Rossio → Sintra", desc: "Catch the 08:36 from Rossio station. Cheaper than driving, faster than the bus.", tag: "Transit", source: "CP Trains", map: 5, area: "Lisboa" },
@@ -64,7 +64,7 @@ const ITINERARY: ItineraryDay[] = [
   {
     day: 4, weekday: "Friday", date: "Jun 13",
     area: "Cascais coast", subtitle: "Sea air & oysters",
-    weather: { kind: "sun", high: 25, low: 18 }, cost: 140,
+    cost: 140,
     blocks: [
       { time: "morning", slots: [
         { time: "10:00", duration: "1h", title: "Coastal train · Cais → Cascais", desc: "Take the slow line along the Tagus estuary. Sit on the right.", tag: "Transit", source: "CP", map: 2, area: "Coast" },
@@ -81,7 +81,7 @@ const ITINERARY: ItineraryDay[] = [
   {
     day: 5, weekday: "Saturday", date: "Jun 14",
     area: "Belém · MAAT", subtitle: "Slow art day",
-    weather: { kind: "partly", high: 26, low: 19 }, cost: 110,
+    cost: 110,
     blocks: [
       { time: "morning", slots: [
         { time: "10:00", duration: "2h", title: "MAAT museum", desc: "Architecture + art on the riverfront. Walk the wave-shaped roof.", tag: "Art", source: "Foursquare", map: 0, area: "Belém" },
@@ -98,7 +98,7 @@ const ITINERARY: ItineraryDay[] = [
   {
     day: 6, weekday: "Sunday", date: "Jun 15",
     area: "Alfama · Feira da Ladra", subtitle: "Markets & fado",
-    weather: { kind: "cloud", high: 23, low: 18 }, cost: 95,
+    cost: 95,
     blocks: [
       { time: "morning", slots: [
         { time: "09:00", duration: "2h", title: "Feira da Ladra flea market", desc: "Sunday-only market. Vintage azulejo tiles, books, ceramics.", tag: "Shopping", source: "Google", map: 4, area: "Graça" },
@@ -115,7 +115,7 @@ const ITINERARY: ItineraryDay[] = [
   {
     day: 7, weekday: "Monday", date: "Jun 16",
     area: "Bairro Alto · departure", subtitle: "Slow last day",
-    weather: { kind: "sun", high: 27, low: 19 }, cost: 60,
+    cost: 60,
     blocks: [
       { time: "morning", slots: [
         { time: "10:00", duration: "1.5h", title: "Coffee + pastel at Manteigaria", desc: "Many say it's better than Belém. Eat one warm at the counter.", tag: "Bite", source: "Foursquare", map: 2, area: "Chiado" },
@@ -160,10 +160,12 @@ function SmallActionBtn({ icon, label, onClick }: { icon: string; label: string;
 }
 
 function ItineraryTopBar({
+  answers,
   dark,
   onToggle,
   onRestart,
 }: {
+  answers: TripAnswers;
   dark: boolean;
   onToggle: () => void;
   onRestart: () => void;
@@ -190,9 +192,9 @@ function ItineraryTopBar({
         <span style={{ width: 1, height: 24, background: "var(--border)" }} />
         <div>
           <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: "-.01em" }}>
-            Lisbon <span style={{ color: "var(--text-3)", fontWeight: 400 }}>·</span> 7 days
+            {answers.destination} <span style={{ color: "var(--text-3)", fontWeight: 400 }}>·</span> {answers.dates.days} days
           </div>
-          <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 1 }}>Jun 10 – 17, 2026</div>
+          <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 1 }}>{answers.dates.start} – {answers.dates.end}</div>
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -269,9 +271,6 @@ function DayPill({ d, active, onClick }: { d: ItineraryDay; active: boolean; onC
           }}
         >
           {d.date}
-          <span style={{ margin: "0 2px" }}>·</span>
-          <WeatherIcon kind={d.weather.kind} size={12} />
-          <span>{d.weather.high}°</span>
         </div>
       </div>
     </button>
@@ -374,40 +373,7 @@ function DaySidebar({
   );
 }
 
-function WeatherBlock({ w }: { w: ItineraryDay["weather"] }) {
-  const kindLabel =
-    w.kind === "sun" ? "Clear" : w.kind === "partly" ? "Partly cloudy" : w.kind === "cloud" ? "Cloudy" : "Rain";
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 14,
-        padding: "10px 18px",
-        background: "var(--bg-2)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--r-l)",
-      }}
-    >
-      <WeatherIcon kind={w.kind} size={28} />
-      <div style={{ lineHeight: 1.1 }}>
-        <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: "-.01em" }}>
-          {w.high}°<span style={{ color: "var(--text-3)", fontSize: 13, marginLeft: 5 }}>/ {w.low}°</span>
-        </div>
-        <div
-          style={{
-            fontSize: 11,
-            color: "var(--text-3)",
-            textTransform: "uppercase",
-            letterSpacing: ".1em",
-          }}
-        >
-          {kindLabel}
-        </div>
-      </div>
-    </div>
-  );
-}
+
 
 function DayHeader({ d }: { d: ItineraryDay }) {
   return (
@@ -455,7 +421,6 @@ function DayHeader({ d }: { d: ItineraryDay }) {
           <span style={{ color: "var(--text-2)", fontWeight: 500, marginLeft: 14 }}>{d.area}</span>
         </h1>
       </div>
-      <WeatherBlock w={d.weather} />
     </div>
   );
 }
@@ -890,7 +855,7 @@ export default function ItineraryScreen({ answers, onRestart, dark, onToggle }: 
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
-      <ItineraryTopBar dark={dark} onToggle={onToggle} onRestart={onRestart} />
+      <ItineraryTopBar answers={answers} dark={dark} onToggle={onToggle} onRestart={onRestart} />
 
       <div
         style={{

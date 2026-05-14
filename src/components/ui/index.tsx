@@ -19,7 +19,7 @@ export function TopBar({ dark, onToggle, step, total, onBack }: TopBarProps) {
   return (
     <header
       style={{
-        position: "fixed",
+        position: "absolute",
         top: 0,
         left: 0,
         right: 0,
