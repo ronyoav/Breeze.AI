@@ -1,49 +1,23 @@
 import json
-from utils.api_clients import tavily_search
-from utils.llm import async_client, MODEL_HAIKU
+from utils.agent_loop import run_agent_loop
 from utils.parsers import Attraction
 from cache.redis import get_cached, set_cached, attraction_cache_key
 from langsmith import traceable
 
-
-BUDGET_QUERY = {
-    "budget": "cheap affordable local street food budget-friendly",
-    "comfort": "mid-range popular local restaurants",
-    "luxury": "upscale fine dining gourmet restaurants",
+BUDGET_LABEL = {
+    "budget": "cheap affordable local street food and budget-friendly",
+    "comfort": "mid-range popular local",
+    "luxury": "upscale fine dining gourmet",
 }
 
-@traceable(name="Beach Subagent", tags=["subagent", "geography"])
-async def fetch_restaurants(city: str, budget: str, days: int) -> list[Attraction]:
-    key = attraction_cache_key(city, "restaurants")
-    cached = await get_cached(key)
-    if cached:
-        return [Attraction(**a) for a in cached]
+SYSTEM_PROMPT = """You are the Restaurant & Food Agent for Breeze.AI, a travel planning assistant.
+Your specialty is discovering the best dining experiences that match a traveler's budget and taste:
+from local street food and hidden gems to upscale fine dining.
 
-    budget_words = BUDGET_QUERY.get(budget, BUDGET_QUERY["comfort"])
-    data = await tavily_search(
-        f"best {budget_words} restaurants {city} must try",
-        max_results=10,
-    )
-    results = data.get("results", [])
-    if not results:
-        return []
-
-    raw_text = "\n\n".join(
-        f"Title: {r.get('title', '')}\nURL: {r.get('url', '')}\nContent: {r.get('content', '')}"
-        for r in results
-    )
-
-    price_label = {"budget": "$ (budget)", "comfort": "$$ (mid-range)", "luxury": "$$$ (upscale)"}.get(budget, "$$")
-
-    message = await async_client.messages.create(
-        model=MODEL_HAIKU,
-        max_tokens=2048,
-        messages=[{
-            "role": "user",
-            "content": f"""Extract the best {price_label} restaurants in {city} from these search results.
-Return ONLY a valid JSON array:
+Use the search_web tool to find real, current restaurant options for the given city and budget.
+After searching, return ONLY a valid JSON array — no extra text, no markdown:
 [
-  {{
+  {
     "id": "rest-1",
     "name": "Restaurant Name",
     "category": "restaurants",
@@ -51,16 +25,27 @@ Return ONLY a valid JSON array:
     "address": "neighborhood or street address",
     "url": "source url if available, else empty string",
     "tip": "best dish, when to go, or whether reservations are needed"
-  }}
+  }
 ]
-Keep 6-10 distinct options matching the {budget} budget tier. Output ONLY the JSON array.
+Include 6-10 distinct options that clearly match the requested budget tier."""
 
-Search results:
-{raw_text}""",
-        }],
+
+@traceable(name="Restaurants Agent", tags=["subagent", "food"])
+async def fetch_restaurants(city: str, budget: str, days: int) -> list[Attraction]:
+    key = attraction_cache_key(city, "restaurants")
+    cached = await get_cached(key)
+    if cached:
+        return [Attraction(**a) for a in cached]
+
+    budget_words = BUDGET_LABEL.get(budget, BUDGET_LABEL["comfort"])
+    price_label = {"budget": "$ (budget)", "comfort": "$$ (mid-range)", "luxury": "$$$ (upscale)"}.get(budget, "$$")
+
+    user_message = (
+        f"Find the best {budget_words} restaurants in {city} for a {days}-day trip. "
+        f"The traveler has a {price_label} budget. Include must-try local spots."
     )
 
-    text = message.content[0].text if message.content else "[]"
+    text = await run_agent_loop(SYSTEM_PROMPT, user_message)
     start, end = text.find("["), text.rfind("]")
     attractions: list[Attraction] = []
     if start != -1 and end != -1:
