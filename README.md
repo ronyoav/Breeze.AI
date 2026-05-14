@@ -12,7 +12,7 @@ User
   v
 ┌─────────────────────────────────────────┐
 │           Orchestrator                  │
-│         (Claude Sonnet 4.6)             │
+│       (Next.js API + Claude)            │
 │  Manages conversation, collects input,  │
 │  consolidates results, handles feedback │
 └────────────────┬────────────────────────┘
@@ -21,29 +21,21 @@ User
         │                 │
         v                 v
 ┌───────────────┐  ┌──────────────────────────────────┐
-│   Scheduler   │  │       AttractionManager          │
-│ (Haiku 4.5)   │  │         (Haiku 4.5)              │
-│               │  │                                  │
-│ Gets pool of  │  │  Routes to sub-agents based on   │
-│ attractions   │  │  user's selected preferences     │
-│ Groups into   │  └──────────────┬───────────────────┘
-│ 2-3 per day   │                 │
-│ Assigns to    │    ┌────────────┼────────────┐
-│ time slots    │    │            │            │
+│   Scheduler   │  │       Interest Agents            │
+│(Claude 3.5 H) │  │  Routes to API endpoints based   │
+│               │  │  on user's selected preferences  │
+│ Gets pool of  │  └──────────────┬───────────────────┘
+│ attractions   │                 │
+│ Groups into   │    ┌────────────┼────────────┐
+│ slots by day  │    │            │            │
 └───────────────┘    v            v            v
-              Restaurants   Nightlife     History
-              (Google       (Foursquare   (OpenTripMap
-               Places)       + Tavily)    + Wikipedia)
+              Restaurants   Attractions   Treks
+              (Tavily +     (Tavily +     (Tavily +
+               Claude)       Claude)       Claude)
 
-              Sports        Extreme       Treks
-              (Tavily)      (Tavily)      (OpenTripMap)
-
-              Beach         Spa           Music & Events
-              (Google       (Google       (Ticketmaster
-               Places)       Places)      + Eventbrite)
-
-              Shopping      Viral Spots
-              (Foursquare)  (Tavily)
+              Concerts
+              (Ticketmaster +
+               Eventbrite + Tavily)
 ```
 
 ---
@@ -111,54 +103,70 @@ User
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend + Backend | Next.js 14 (App Router) |
-| Orchestrator agent | Claude Sonnet 4.6 |
-| Sub-agents | Claude Haiku 4.5 |
-| Cache | Upstash Redis (TTL 48h) |
+| Frontend + Backend | Next.js (App Router) |
+| Orchestrator/Scheduler | Claude 3.5 Haiku |
+| Sub-agents | Claude 3.5 Haiku + Tavily |
 | Hosting | Vercel |
 
 ### Data Sources
 
 | Category | API |
 |----------|-----|
-| Restaurants, Spa, Beach, Shopping | Google Places API |
-| Nightlife, Bars | Foursquare Places API |
-| Historical sites, Treks, Nature | OpenTripMap API |
-| Music, Events, Festivals | Ticketmaster API + Eventbrite API |
-| Viral spots, Extreme, Sports | Tavily Search API |
-| Historical descriptions | Wikipedia API (free, no key) |
-| Weather per day | OpenWeatherMap API |
+| Restaurants, Attractions, Treks, etc. | Tavily Search API |
+| Music & Concerts | Ticketmaster API + Eventbrite API |
 
 ---
 
 ## Getting Started
 
-```bash
-npm install
-npm run dev
-```
+1. **Set up environment variables**  
+   Create a `.env.local` file in the root of the project and add your API keys:
+   ```env
+   API_KEY_LLM="your_openrouter_api_key"
+   API_KEY_TAVILY="your_tavily_api_key"
+   API_KEY_TICKETMASTER="your_ticketmaster_api_key" # Optional, for live music
+   API_KEY_EVENTBRITE="your_eventbrite_api_key"     # Optional, for live events
+   ```
 
-Open [http://localhost:3000](http://localhost:3000).
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+
+4. **Open the app**  
+   Visit [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
 ## Project Structure
 
 ```
-app/
-  layout.tsx          # Root layout + Google Fonts
-  page.tsx            # Entry point
-  globals.css         # CSS variables (Mediterranean palette + dark mode)
+src/
+  app/
+    api/
+      attractions/route.ts
+      concerts/route.ts
+      restaurants/route.ts
+      revise/route.ts
+      schedule/route.ts
+      treks/route.ts
+    layout.tsx
+    page.tsx
+    globals.css
 
-components/
-  BreezeApp.tsx       # State orchestrator — manages screen transitions
-  WelcomeScreen.tsx
-  QuestionScreens.tsx # Q1–Q4 (departure, dates, composition, budget)
-  PreferencesScreen.tsx
-  GeneratingScreen.tsx
-  ItineraryScreen.tsx
-  types.ts            # Shared TypeScript types
-  ui/
-    index.tsx         # TopBar, IconBtn, PrimaryBtn, SoftBtn
-    svgs.tsx          # Wordmark, CityMap, WeatherIcon, Icon library
+  components/
+    BreezeApp.tsx       # State orchestrator
+    WelcomeScreen.tsx
+    PreferencesScreen.tsx
+    GeneratingScreen.tsx
+    ItineraryScreen.tsx
+    types.ts            # Shared TypeScript types
+    ui/
+      index.tsx         
+      svgs.tsx          
 ```
