@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from agents.sub_agents.history import fetch_history
+from agents.sub_agents.events import fetch_events
 
 async def test_agent():
     # Provide the mock user profile directly
@@ -17,23 +17,23 @@ async def test_agent():
             "3": {"gender": "male", "age": 22}
         },
         "budget": 1,
-        "dates": {"start": "2026-03-10", "end": "2026-03-15"},
+        "dates": {"start": "2026-06-10", "end": "2026-06-15"},
         "daysNumber": 6,
-        "location": {"country": "France", "city": "Paris"}, # Test in Paris
+        "location": {"country": "USA", "city": "New York"}, # Test in New York for more events
         "accessibility": False,
-        "interests": ["history", "nightlife", "sports"]
+        "interests": ["events", "nightlife", "sports"]
     }
 
-    print("Searching for historic spots using the dynamic Claude scoring agent...")
+    print("Searching for events using the dynamic Claude scoring agent...")
     
     try:
-        results = await fetch_history(user_profile)
+        results = await fetch_events(user_profile)
         
-        print(f"\nFound {len(results)} highly-curated historic results:")
+        print(f"\nFound {len(results)} highly-curated event results:")
         
         for place in results:
             safe_name = place.name.encode('ascii', 'replace').decode('ascii')
-            safe_address = place.address.encode('ascii', 'replace').decode('ascii')
+            safe_address = place.address.encode('ascii', 'replace').decode('ascii') if place.address else "No Address"
             safe_desc = place.description.encode('ascii', 'replace').decode('ascii') if place.description else "No description"
             safe_notes = place.notes.encode('ascii', 'replace').decode('ascii') if place.notes else "None"
             

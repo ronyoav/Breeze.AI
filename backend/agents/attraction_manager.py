@@ -29,18 +29,31 @@ async def run_attraction_manager(
     end_date: str,
     days: int,
 ) -> list[Attraction]:
+    budget_num = {"budget": 1, "comfort": 2, "luxury": 3}.get(budget, 2)
+    
+    user_profile = {
+        "location": {"city": city},
+        "budget": budget_num,
+        "groupStructure": composition,
+        "interests": interests,
+        "dates": {"start": start_date, "end": end_date},
+        "daysNumber": days,
+        "session_id": "default"
+    }
+
     fetcher_map = {
-        "restaurants": lambda: fetch_restaurants(city, budget, days),
-        "nightlife":   lambda: fetch_nightlife(city, budget),
-        "history":     lambda: fetch_history(city),
-        "sports":      lambda: fetch_sports(city, start_date, end_date),
-        "extreme":     lambda: fetch_extreme(city),
-        "treks":       lambda: fetch_treks(city),
-        "beach":       lambda: fetch_beach(city),
-        "spa":         lambda: fetch_spa(city, budget, start_date, end_date),
-        "events":      lambda: fetch_events(city, start_date, end_date),
-        "shopping":    lambda: fetch_shopping(city, budget),
-        "viral":       lambda: fetch_viral(city),
+        "restaurants": lambda: fetch_restaurants(user_profile),
+        "nightlife":   lambda: fetch_nightlife(user_profile),
+        "history":     lambda: fetch_history(user_profile),
+        "sports":      lambda: fetch_sports(user_profile),
+        "extreme":     lambda: fetch_extreme(user_profile),
+        "treks":       lambda: fetch_treks(user_profile),
+        "beach":       lambda: fetch_beach(user_profile),
+        "spa":         lambda: fetch_spa(user_profile),
+        "events":      lambda: fetch_events(user_profile),
+        "shopping":    lambda: fetch_shopping(user_profile),
+        "viral":       lambda: fetch_viral(user_profile),
+        "generic":     lambda: fetch_generic(user_profile, "casino"), # example
     }
 
     active = [i for i in interests if i in fetcher_map]

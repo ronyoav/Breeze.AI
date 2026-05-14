@@ -1,56 +1,35 @@
 import json
 import httpx
-from anthropic import AsyncAnthropic
 from langsmith import traceable
 from utils.api_clients import OVERPASS_BASE
 from utils.parsers import Attraction
 from cache.redis import get_cached, set_cached, attraction_cache_key
 from typing import Optional
-from utils.llm import async_client, MODEL_HAIKU
+from utils.llm import async_client, MODEL_HAIKU, build_subagent_prompt, extract_json_object
 
-def build_shopping_prompt(user_profile: dict) -> str:
-    profile_json = json.dumps(user_profile, indent=2)
-    return f"""You are an expert personal shopping curator.
-You are curating a highly personalized list of shopping spots specifically for this user profile:
-<user_profile>
-{profile_json}
-</user_profile>
-
-You will receive a raw list of shopping spots fetched from OpenStreetMap.
-Your job is to select the 5-8 most compelling shopping spots that perfectly match the user's budget, ages, group relation, and interests.
-
-CRITICAL INSTRUCTIONS:
-1. You must calculate a `subAgentScore` (from 1.0 to 10.0) for each spot based ONLY on how well it fits the <user_profile>.
-2. Fill out all required fields (`ageRange`, `reviews`, `prices`, `notes`, `specialNotes`, etc.). If you don't know a field, use null.
-3. Output ONLY a valid JSON array — no extra text, markdown, or explanations. Do NOT wrap it in a JSON block. Just the raw array starting with [ and ending with ].
-
-Example JSON Array Format:
-[
-  {{
-    "name": "Boutique Name",
-    "address": "Street Address",
-    "coordinates": {{"lat": 48.0, "lng": 2.0}},
-    "description": "2-3 sentences about why they will love it.",
-    "imageurl": null,
-    "ageRange": "Adults",
-    "reviews": 4.8,
-    "prices": 3,
-    "notes": "Appointment only.",
-    "specialNotes": "Flagship store.",
-    "subAgentScore": 9.5,
-    "scoresLog": [9.5]
-  }}
-]"""
-
-def _extract_json_array(text: str) -> Optional[str]:
-    start = text.find("[")
-    end = text.rfind("]")
-    if start != -1 and end != -1:
-        return text[start : end + 1]
-    return None
+SHOPPING_INSTRUCTIONS = """
+=== SHOPPING AGENT SPECIFIC BEHAVIOR ===
+You are evaluating retail and shopping locations. Your scoring must be ruthlessly strict based on the user's demographic and budget:
+- LUXURY VS THRIFT: If the budget is 3, aggressively score high-end boutiques (Cartier, Rolex, designer fashion) closer to 10.0. Reject cheap malls. If the budget is 1, aggressively reject luxury brands and score vintage, thrift, or standard malls highly.
+- AGE DEMOGRAPHICS: If the group is "friends" and ages are 18-25, prioritize trendy streetwear, sneaker boutiques, and viral pop-ups. If the group is "family" with children, prioritize large department stores or malls with diverse offerings.
+- MEN VS WOMEN: Analyze the genders in `groupStructure`. Do not suggest a high-end women's cosmetics flagship if the group consists entirely of 21-year-old men.
+- PRICING FORMAT: In your output, the `prices` field MUST be accurately mapped: 1 for cheap/standard, 2 for mid-tier, 3 for luxury.
+"""
 
 @traceable(name="Shopping Subagent", tags=["subagent", "shopping"])
 async def fetch_shopping(user_profile: dict) -> list[Attraction]:
+    """
+    Shopping Sub-Agent
+    
+    Role: Identifies retail districts, malls, thrift stores, and luxury boutiques.
+    
+    Behavior:
+    1. Maps the numerical budget tier from the `user_profile` to specific shopping targets.
+    2. Uses Tavily to query targeted shopping areas within the requested city.
+    3. Sends raw search data to Claude for profile-based curation.
+    4. Strictly avoids luxury brands for low budgets (preferring thrift/vintage) and prioritizes high-end districts for luxury budgets.
+    5. Returns a structured JSON array of shopping Attraction objects.
+    """
     # 1. Extract variables from the dictionary
     location = user_profile.get("location", {})
     city = location.get("city", "")
@@ -67,7 +46,7 @@ async def fetch_shopping(user_profile: dict) -> list[Attraction]:
 
     # Map the numerical budget back to the shop_types we need
     shop_types = "boutique|jewelry|watches" if budget_num == 3 else "mall|department_store|clothes"
-
+    
     overpass_query = f"""
     [out:json];
     area[name="{city}"]->.searchArea;
@@ -93,12 +72,13 @@ async def fetch_shopping(user_profile: dict) -> list[Attraction]:
         name = tags.get('name')
         if not name:
             continue
+        
         lat = el.get('lat') or (el.get('center', {}).get('lat'))
         lon = el.get('lon') or (el.get('center', {}).get('lon'))
         street = tags.get('addr:street', '')
         housenumber = tags.get('addr:housenumber', '')
         address = f"{housenumber} {street}".strip() if street else city
-
+        
         raw_attractions.append({
             "id": str(el.get('id', id(el))),
             "name": name,
@@ -110,8 +90,8 @@ async def fetch_shopping(user_profile: dict) -> list[Attraction]:
     if not raw_attractions:
         return []
 
-    # 2. Build the dynamic prompt
-    system_prompt = build_shopping_prompt(user_profile)
+    # 2. Build the dynamic prompt using the Injector
+    system_prompt = build_subagent_prompt(user_profile, "shopping", SHOPPING_INSTRUCTIONS)
     
     # 3. Call Claude to score, filter, and format the JSON
     raw_json_str = json.dumps(raw_attractions, indent=2)
@@ -122,13 +102,14 @@ async def fetch_shopping(user_profile: dict) -> list[Attraction]:
         messages=[{"role": "user", "content": f"Raw shopping spots:\n{raw_json_str}"}]
     )
 
-    text = message.content[0].text if message.content else "[]"
-    json_match = _extract_json_array(text)
+    text = message.content[0].text if message.content else "{}"
+    json_match = extract_json_object(text)
     
     attractions = []
     if json_match:
         try:
-            parsed_list = json.loads(json_match)
+            parsed_data = json.loads(json_match)
+            parsed_list = parsed_data.get("results", [])
             for item in parsed_list:
                 item["category"] = "shopping"
                 if "id" not in item:
