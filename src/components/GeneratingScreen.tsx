@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { TopBar, Icon } from "./ui";
-import type { TripAnswers, AttractionItem, ItineraryData } from "./types";
+import type { TripAnswers, AttractionItem, ItineraryData, GeneratedItinerary } from "./types";
 
 const INTEREST_META: Record<string, { label: string; icon: string }> = {
   restaurants: { label: "Scouting the best restaurants", icon: "utensils" },
@@ -24,10 +24,19 @@ function parseTripDate(label: string): string {
   const now = new Date();
   const attempt = new Date(`${label} ${now.getFullYear()}`);
   if (!isNaN(attempt.getTime())) {
-    if (attempt < now) attempt.setFullYear(now.getFullYear() + 1);
-    return attempt.toISOString().split("T")[0];
+    const attemptVal = attempt.getMonth() * 100 + attempt.getDate();
+    const nowVal = now.getMonth() * 100 + now.getDate();
+    if (attemptVal < nowVal) attempt.setFullYear(now.getFullYear() + 1);
+    
+    const yyyy = attempt.getFullYear();
+    const mm = String(attempt.getMonth() + 1).padStart(2, '0');
+    const dd = String(attempt.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   }
-  return now.toISOString().split("T")[0];
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 async function callAgent(
@@ -42,22 +51,22 @@ async function callAgent(
   try {
     let res: Response;
     if (interest === "restaurants") {
-      res = await fetch(`/api/restaurants?city=${city}&budget=${budget}`);
+      res = await fetch(`/api/restaurants?city=${city}&budget=${budget}&days=${answers.dates.days}`);
       const d = await res.json();
       return d.restaurants ?? [];
     }
     if (interest === "treks") {
-      res = await fetch(`/api/treks?city=${city}`);
+      res = await fetch(`/api/treks?city=${city}&days=${answers.dates.days}`);
       const d = await res.json();
       return d.treks ?? [];
     }
     if (interest === "music") {
-      res = await fetch(`/api/concerts?city=${city}&startDate=${startDate}&endDate=${endDate}`);
+      res = await fetch(`/api/concerts?city=${city}&startDate=${startDate}&endDate=${endDate}&days=${answers.dates.days}`);
       const d = await res.json();
       return d.concerts ?? [];
     }
     // Generic agent for all other categories
-    res = await fetch(`/api/attractions?city=${city}&category=${interest}&budget=${budget}`);
+    res = await fetch(`/api/attractions?city=${city}&category=${interest}&budget=${budget}&days=${answers.dates.days}`);
     const d = await res.json();
     return d.attractions ?? [];
   } catch {
@@ -67,7 +76,7 @@ async function callAgent(
 
 interface Props {
   answers: TripAnswers;
-  onDone: (data: ItineraryData) => void;
+  onDone: (itinerary: GeneratedItinerary) => void;
   dark: boolean;
   onToggle: () => void;
 }
@@ -79,6 +88,7 @@ export default function GeneratingScreen({ answers, onDone, dark, onToggle }: Pr
   const [statuses, setStatuses] = useState<Record<string, TaskStatus>>(
     () => Object.fromEntries(interests.map((id) => [id, "pending"]))
   );
+  const [schedulingStatus, setSchedulingStatus] = useState<"idle" | "loading" | "done">("idle");
   const ran = useRef(false);
 
   useEffect(() => {
@@ -86,7 +96,7 @@ export default function GeneratingScreen({ answers, onDone, dark, onToggle }: Pr
     ran.current = true;
 
     if (interests.length === 0) {
-      onDone({});
+      onDone({ days: [] });
       return;
     }
 
@@ -104,8 +114,33 @@ export default function GeneratingScreen({ answers, onDone, dark, onToggle }: Pr
           [interest]: items.length > 0 ? "done" : "empty",
         }));
       })
-    ).then(() => {
-      onDone(results);
+    ).then(async () => {
+      const allItems: AttractionItem[] = Object.values(results).flat();
+
+      setSchedulingStatus("loading");
+      try {
+        const res = await fetch("/api/schedule", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: allItems,
+            city: answers.destination,
+            days: answers.dates.days,
+            startDate: answers.dates.start,
+            composition: answers.composition ?? "friends",
+            budget: answers.budget,
+            interests: answers.interests,
+            ages: answers.ages,
+          }),
+        });
+        const itinerary: GeneratedItinerary = await res.json();
+        itinerary.pool = allItems;
+        setSchedulingStatus("done");
+        onDone(itinerary);
+      } catch {
+        setSchedulingStatus("done");
+        onDone({ days: [] });
+      }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -196,6 +231,51 @@ export default function GeneratingScreen({ answers, onDone, dark, onToggle }: Pr
 
         {/* Agent tasks */}
         <div style={{ marginTop: 56, width: "100%", maxWidth: 680, display: "flex", flexDirection: "column", gap: 8 }}>
+          {/* Scheduling step — shown after all agents finish */}
+          {doneCount === total && total > 0 && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 18,
+                padding: "14px 18px",
+                borderRadius: "var(--r)",
+                background: schedulingStatus === "loading" ? "var(--bg-2)" : "transparent",
+                border: "1px solid",
+                borderColor: schedulingStatus === "loading" ? "var(--border)" : "transparent",
+                transition: "all .4s var(--ease)",
+                marginBottom: 8,
+              }}
+            >
+              <div
+                style={{
+                  width: 26, height: 26, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
+                  background: schedulingStatus === "done" ? "var(--accent)" : schedulingStatus === "loading" ? "var(--lemon)" : "transparent",
+                  border: "1.5px solid",
+                  borderColor: schedulingStatus === "done" ? "var(--accent)" : schedulingStatus === "loading" ? "var(--lemon)" : "var(--border)",
+                  flex: "0 0 26px",
+                  transition: "all .4s var(--ease)",
+                }}
+              >
+                {schedulingStatus === "done" && <Icon name="check" size={16} stroke="#fff" strokeWidth={2.4} />}
+                {schedulingStatus === "loading" && (
+                  <div style={{ width: 8, height: 8, borderRadius: 999, background: "var(--ink)", animation: "pulse 1.2s ease-in-out infinite" }} />
+                )}
+              </div>
+              <Icon name="calendar" size={16} stroke={schedulingStatus === "done" ? "var(--accent)" : "var(--text-3)"} />
+              <span
+                style={{
+                  fontSize: 17,
+                  fontWeight: schedulingStatus === "loading" ? 600 : 500,
+                  color: schedulingStatus === "done" ? "var(--text-2)" : schedulingStatus === "loading" ? "var(--text)" : "var(--text-3)",
+                  textDecorationLine: schedulingStatus === "done" ? "line-through" : "none",
+                  textDecorationColor: "rgba(10,27,46,.2)",
+                }}
+              >
+                Building your calendar itinerary
+              </span>
+            </div>
+          )}
           {interests.map((id) => {
             const meta = INTEREST_META[id] ?? { label: id, icon: "star" };
             const status = statuses[id] ?? "pending";
@@ -265,6 +345,8 @@ export default function GeneratingScreen({ answers, onDone, dark, onToggle }: Pr
         <div style={{ marginTop: 48, color: "var(--text-3)", fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase" }}>
           {doneCount < total
             ? `${doneCount} / ${total} agents done`
+            : schedulingStatus === "loading"
+            ? "Scheduling your days…"
             : "Finalising your trip…"}
         </div>
       </main>

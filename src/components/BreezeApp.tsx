@@ -6,14 +6,14 @@ import { Q_Departure, Q_Dates, Q_Composition, Q_Budget } from "./QuestionScreens
 import PreferencesScreen from "./PreferencesScreen";
 import GeneratingScreen from "./GeneratingScreen";
 import ItineraryScreen from "./ItineraryScreen";
-import type { TripAnswers, Screen, ItineraryData } from "./types";
+import type { TripAnswers, Screen, GeneratedItinerary } from "./types";
 
 const QUESTION_FLOW: Screen[] = ["q-departure", "q-dates", "q-composition", "q-budget"];
 
 export default function BreezeApp() {
   const [screen, setScreen] = useState<Screen>("welcome");
   const [dark, setDark] = useState(false);
-  const [itineraryData, setItineraryData] = useState<ItineraryData>({});
+  const [generatedItinerary, setGeneratedItinerary] = useState<GeneratedItinerary>({ days: [] });
   const [answers, setAnswers] = useState<TripAnswers>(() => {
     const today = new Date();
     const plusWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -133,8 +133,8 @@ export default function BreezeApp() {
     return (
       <GeneratingScreen
         answers={answers}
-        onDone={(data) => {
-          setItineraryData(data);
+        onDone={(itinerary) => {
+          setGeneratedItinerary(itinerary);
           goTo("itinerary");
         }}
         {...sharedProps}
@@ -145,11 +145,12 @@ export default function BreezeApp() {
     return (
       <ItineraryScreen
         answers={answers}
-        itineraryData={itineraryData}
+        generatedItinerary={generatedItinerary}
         onRestart={() => {
-          setItineraryData({});
+          setGeneratedItinerary({ days: [] });
           goTo("welcome");
         }}
+        onUpdate={(itinerary) => setGeneratedItinerary(itinerary)}
         {...sharedProps}
       />
     );
