@@ -3,8 +3,9 @@ import httpx
 from utils.api_clients import TICKETMASTER_BASE, EVENTBRITE_BASE, ticketmaster_key, eventbrite_key
 from utils.parsers import Attraction
 from cache.redis import get_cached, set_cached, attraction_cache_key
+from langsmith import traceable
 
-
+@traceable(name="Beach Subagent", tags=["subagent", "geography"])
 async def fetch_events(city: str, start_date: str, end_date: str) -> list[Attraction]:
     key = attraction_cache_key(city, "events")
     cached = await get_cached(key)

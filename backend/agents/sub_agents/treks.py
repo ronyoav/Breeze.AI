@@ -3,8 +3,9 @@ from utils.api_clients import tavily_search
 from utils.llm import async_client, MODEL_HAIKU
 from utils.parsers import Attraction
 from cache.redis import get_cached, set_cached, attraction_cache_key
+from langsmith import traceable
 
-
+@traceable(name="Beach Subagent", tags=["subagent", "geography"])
 async def fetch_treks(city: str) -> list[Attraction]:
     key = attraction_cache_key(city, "treks")
     cached = await get_cached(key)
