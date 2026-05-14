@@ -6,19 +6,29 @@ import { Q_Departure, Q_Dates, Q_Composition, Q_Budget } from "./QuestionScreens
 import PreferencesScreen from "./PreferencesScreen";
 import GeneratingScreen from "./GeneratingScreen";
 import ItineraryScreen from "./ItineraryScreen";
-import type { TripAnswers, Screen } from "./types";
+import type { TripAnswers, Screen, ItineraryData } from "./types";
 
 const QUESTION_FLOW: Screen[] = ["q-departure", "q-dates", "q-composition", "q-budget"];
 
 export default function BreezeApp() {
   const [screen, setScreen] = useState<Screen>("welcome");
   const [dark, setDark] = useState(false);
-  const [answers, setAnswers] = useState<TripAnswers>({
-    destination: "",
-    dates: { start: "Jun 10", end: "Jun 17", days: 7 },
-    composition: null,
-    budget: "comfort",
-    interests: [],
+  const [itineraryData, setItineraryData] = useState<ItineraryData>({});
+  const [answers, setAnswers] = useState<TripAnswers>(() => {
+    const today = new Date();
+    const plusWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    // Store ISO dates so Q_Dates can parse them reliably
+    return {
+      destination: "",
+      dates: {
+        start: today.toISOString().split("T")[0],
+        end: plusWeek.toISOString().split("T")[0],
+        days: 8,
+      },
+      composition: null,
+      budget: "comfort",
+      interests: [],
+    };
   });
 
   useEffect(() => {
@@ -123,7 +133,10 @@ export default function BreezeApp() {
     return (
       <GeneratingScreen
         answers={answers}
-        onDone={() => goTo("itinerary")}
+        onDone={(data) => {
+          setItineraryData(data);
+          goTo("itinerary");
+        }}
         {...sharedProps}
       />
     );
@@ -132,7 +145,11 @@ export default function BreezeApp() {
     return (
       <ItineraryScreen
         answers={answers}
-        onRestart={() => goTo("welcome")}
+        itineraryData={itineraryData}
+        onRestart={() => {
+          setItineraryData({});
+          goTo("welcome");
+        }}
         {...sharedProps}
       />
     );

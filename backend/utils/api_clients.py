@@ -41,7 +41,7 @@ def openweather_key() -> str:
     return _env("OPENWEATHER_API_KEY")
 
 def tavily_key() -> str:
-    return _env("TAVILY_API_KEY")
+    return _env("API_KEY_TAVILY")
 
 
 async def tavily_search(query: str, max_results: int = 5) -> dict:
