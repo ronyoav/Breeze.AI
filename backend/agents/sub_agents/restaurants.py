@@ -21,6 +21,18 @@ You are evaluating dining experiences ranging from street food to fine dining.
 
 @traceable(name="Restaurants Agent", tags=["subagent", "food"])
 async def fetch_restaurants(user_profile: dict) -> list[Attraction]:
+    """
+    Restaurants & Food Sub-Agent
+    
+    Role: Discovers the best dining experiences matching a traveler's budget and taste.
+    
+    Behavior:
+    1. Maps the numerical budget tier (1, 2, or 3) from the `user_profile` to a targeted search term (e.g., street food vs. fine dining).
+    2. Utilizes the autonomous agent loop to search the web for current, highly-rated restaurants.
+    3. Strictly enforces dietary restrictions or accessibility needs found in the user's profile.
+    4. Enriches the description with clear details on cuisine type and why it suits the group.
+    5. Returns a structured JSON array of curated dining Attraction objects.
+    """
     location = user_profile.get("location", {})
     city = location.get("city", "")
     budget_num = user_profile.get("budget", 2)

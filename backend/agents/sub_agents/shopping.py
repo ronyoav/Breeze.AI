@@ -18,6 +18,18 @@ You are evaluating retail and shopping locations. Your scoring must be ruthlessl
 
 @traceable(name="Shopping Subagent", tags=["subagent", "shopping"])
 async def fetch_shopping(user_profile: dict) -> list[Attraction]:
+    """
+    Shopping Sub-Agent
+    
+    Role: Identifies retail districts, malls, thrift stores, and luxury boutiques.
+    
+    Behavior:
+    1. Maps the numerical budget tier from the `user_profile` to specific shopping targets.
+    2. Uses Tavily to query targeted shopping areas within the requested city.
+    3. Sends raw search data to Claude for profile-based curation.
+    4. Strictly avoids luxury brands for low budgets (preferring thrift/vintage) and prioritizes high-end districts for luxury budgets.
+    5. Returns a structured JSON array of shopping Attraction objects.
+    """
     # 1. Extract variables from the dictionary
     location = user_profile.get("location", {})
     city = location.get("city", "")

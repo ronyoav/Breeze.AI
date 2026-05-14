@@ -22,6 +22,18 @@ You are evaluating bars, clubs, lounges, and live music venues.
 
 @traceable(name="Nightlife Agent", tags=["subagent", "nightlife"])
 async def fetch_nightlife(user_profile: dict) -> list[Attraction]:
+    """
+    Nightlife Sub-Agent
+    
+    Role: Evaluates bars, clubs, lounges, and live music venues.
+    
+    Behavior:
+    1. Extracts the city and group structure from the `user_profile`.
+    2. Runs parallel Tavily searches for various nightlife categories (bars, clubs, live music).
+    3. Consolidates the web results and passes them to Claude for curation.
+    4. Aggressively filters based on age demographics, avoiding 21+ clubs if the group contains underage travelers, and preferring relaxed lounges for family groups.
+    5. Returns a structured JSON array of curated Nightlife Attraction objects.
+    """
     location = user_profile.get("location", {})
     city = location.get("city", "")
     session_id = user_profile.get("session_id", "default")

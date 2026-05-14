@@ -17,6 +17,19 @@ You are evaluating historical sites, monuments, ruins, and museums.
 
 @traceable(name="History Subagent", tags=["subagent", "history"])
 async def fetch_history(user_profile: dict) -> list[Attraction]:
+    """
+    History Sub-Agent
+    
+    Role: Discovers and curates historical landmarks, museums, and culturally significant sites.
+    
+    Behavior:
+    1. Extracts location, age demographics, and budget from the `user_profile`.
+    2. Queries the Overpass API for historical coordinates in the specified city.
+    3. Enriches the top coordinate hits with full text descriptions from Wikipedia.
+    4. Passes the enriched dataset to Claude for curation and filtering.
+    5. Discards overly fatiguing historical sites if the group contains elderly travelers.
+    6. Returns a structured JSON array of enriched Attraction objects.
+    """
     location = user_profile.get("location", {})
     city = location.get("city", "")
     session_id = user_profile.get("session_id", "default")

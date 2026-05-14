@@ -15,6 +15,18 @@ You are evaluating trendy, Instagrammable, and viral TikTok spots.
 
 @traceable(name="Viral Spots Agent", tags=["subagent", "viral"])
 async def fetch_viral(user_profile: dict) -> list[Attraction]:
+    """
+    Viral Spots Sub-Agent
+    
+    Role: Discovers trendy, highly-aesthetic, and viral Instagram/TikTok spots.
+    
+    Behavior:
+    1. Ingests the `user_profile` to assess the group's age demographics.
+    2. Uses Tavily to query current-year viral spots, hidden gems, and aesthetic locations.
+    3. Passes raw search results to Claude to evaluate "coolness" and visual appeal.
+    4. Avoids irrelevant trendy pop-ups for elderly groups, focusing instead on classic photogenic landmarks.
+    5. Returns a structured JSON array of highly-aesthetic Attraction objects.
+    """
     location = user_profile.get("location", {})
     city = location.get("city", "")
     session_id = user_profile.get("session_id", "default")

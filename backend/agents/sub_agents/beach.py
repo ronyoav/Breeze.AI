@@ -41,6 +41,18 @@ async def run_tavily_search(query: str) -> str:
 
 @traceable(name="Beach Subagent", tags=["subagent", "tavily", "tool_use", "beach"])
 async def fetch_beach(user_profile: dict) -> list[Attraction]:
+    """
+    Beach Sub-Agent
+    
+    Role: Discovers and curates top-rated beaches and coastal spots.
+    
+    Behavior:
+    1. Ingests the `user_profile` to understand the group's demographics (e.g., family vs. young adults).
+    2. Utilizes Anthropic's tool-use feature to let Claude autonomously search Tavily for beaches near the destination.
+    3. Filters search results to prioritize safety and amenities for families, or vibrant/party atmospheres for young adults.
+    4. Evaluates accessibility needs, preferring boardwalks if required.
+    5. Returns a structured JSON array containing the selected beaches formatted as Attraction objects.
+    """
     location = user_profile.get("location", {})
     city = location.get("city", "")
     session_id = user_profile.get("session_id", "default")

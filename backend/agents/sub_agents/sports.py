@@ -17,6 +17,18 @@ You are evaluating live sports matches, stadium tours, and sporting events.
 
 @traceable(name="Sports Agent", tags=["subagent", "sports"])
 async def fetch_sports(user_profile: dict) -> list[Attraction]:
+    """
+    Sports Sub-Agent
+    
+    Role: Evaluates live sports matches, stadium tours, and sporting events.
+    
+    Behavior:
+    1. Extracts travel dates and interests from the `user_profile`.
+    2. Queries the Ticketmaster API for live sports matches during the trip dates.
+    3. Falls back to a generic web search for stadiums and tours if no live events match.
+    4. Curates the events with LLM logic to emphasize the atmosphere and VIP vs standard tickets based on budget.
+    5. Returns a structured JSON array of sports Attraction objects.
+    """
     location = user_profile.get("location", {})
     city = location.get("city", "")
     dates = user_profile.get("dates", {})

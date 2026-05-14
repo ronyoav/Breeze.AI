@@ -21,6 +21,18 @@ You are evaluating spa centers, wellness retreats, and massage studios.
 
 @traceable(name="Spa Agent", tags=["subagent", "wellness"])
 async def fetch_spa(user_profile: dict) -> list[Attraction]:
+    """
+    Spa & Wellness Sub-Agent
+    
+    Role: Identifies the best spa centers, wellness retreats, and massage studios.
+    
+    Behavior:
+    1. Extracts the budget and demographics from the `user_profile`.
+    2. Uses the autonomous agent loop to search the web for wellness options.
+    3. Filters based on budget (local massage parlors vs. luxury resort spas).
+    4. Adapts to the group (suggesting family-friendly baths or romantic couples massages).
+    5. Returns a structured JSON array of curated spa Attraction objects.
+    """
     location = user_profile.get("location", {})
     city = location.get("city", "")
     budget_num = user_profile.get("budget", 2)

@@ -15,6 +15,18 @@ You are evaluating hiking trails, trekking routes, and outdoor nature tours.
 
 @traceable(name="Treks Agent", tags=["subagent", "outdoor"])
 async def fetch_treks(user_profile: dict) -> list[Attraction]:
+    """
+    Treks & Outdoor Sub-Agent
+    
+    Role: Evaluates hiking trails, trekking routes, and outdoor nature tours.
+    
+    Behavior:
+    1. Extracts city and session context from the `user_profile`.
+    2. Searches the web for outdoor trails and nature walks.
+    3. Analyzes the `groupStructure` to adjust difficulty (e.g., easy, paved paths for families with children or elderly groups vs. challenging summits for young adults).
+    4. Curates the results to highlight trail length and difficulty in the description.
+    5. Returns a structured JSON array of trekking Attraction objects.
+    """
     location = user_profile.get("location", {})
     city = location.get("city", "")
     session_id = user_profile.get("session_id", "default")

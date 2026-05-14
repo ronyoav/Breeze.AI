@@ -18,6 +18,19 @@ You are evaluating dynamic events like concerts, festivals, sports games, and cu
 
 @traceable(name="Events Agent", tags=["subagent", "events"])
 async def fetch_events(user_profile: dict) -> list[Attraction]:
+    """
+    Events Sub-Agent
+    
+    Role: Sources live events, concerts, festivals, and performances occurring during the user's trip.
+    
+    Behavior:
+    1. Extracts the exact travel dates and location from the `user_profile`.
+    2. Queries the Ticketmaster API to retrieve real, scheduled events.
+    3. Triggers a fallback Tavily web search if Ticketmaster yields insufficient results.
+    4. Passes the raw event data to Claude for curation.
+    5. Claude filters events based on the group's age demographics and budget (e.g., VIP vs standard admission).
+    6. Returns a structured JSON array of enriched Attraction objects.
+    """
     location = user_profile.get("location", {})
     city = location.get("city", "")
     dates = user_profile.get("dates", {})

@@ -16,6 +16,19 @@ You are a versatile agent handling various requested categories (like theme park
 
 @traceable(name="Generic Agent", tags=["subagent", "generic"])
 async def fetch_generic(user_profile: dict, category: str) -> list[Attraction]:
+    """
+    Generic Sub-Agent
+    
+    Role: Acts as a flexible fallback agent that can search for any arbitrary category
+    (e.g., 'casinos', 'theme parks', 'museums') not covered by specialized sub-agents.
+    
+    Behavior:
+    1. Extracts city and session context from the user_profile.
+    2. Constructs targeted Tavily queries dynamically based on the requested `category`.
+    3. Aggregates search results and forwards them to Claude.
+    4. Evaluates the findings strictly against the user's budget and demographic constraints.
+    5. Returns a structured JSON array of highly-curated Attraction objects.
+    """
     location = user_profile.get("location", {})
     city = location.get("city", "")
     session_id = user_profile.get("session_id", "default")

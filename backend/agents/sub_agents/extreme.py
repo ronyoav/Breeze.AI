@@ -15,6 +15,18 @@ You are evaluating extreme sports and high-adrenaline adventure activities.
 
 @traceable(name="Extreme Sports Agent", tags=["subagent", "extreme"])
 async def fetch_extreme(user_profile: dict) -> list[Attraction]:
+    """
+    Extreme Sports Sub-Agent
+    
+    Role: Locates high-adrenaline adventure activities and extreme sports.
+    
+    Behavior:
+    1. Extracts location, group structure, and budget from `user_profile`.
+    2. Searches the web for extreme activities like skydiving, bungee jumping, and paragliding.
+    3. Heavily filters results based on age demographics (e.g., rejects dangerous activities for elderly or young children, substituting milder adventures like zip-lining).
+    4. Adjusts recommendations based on budget (luxury charters vs. local outdoor climbing).
+    5. Returns a structured JSON array of safe, profile-matched Attraction objects.
+    """
     location = user_profile.get("location", {})
     city = location.get("city", "")
     session_id = user_profile.get("session_id", "default")
