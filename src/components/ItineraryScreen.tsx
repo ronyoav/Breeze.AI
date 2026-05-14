@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { IconBtn, Icon, Wordmark } from "./ui";
 import { CityMap } from "./ui/svgs";
 import type { TripAnswers, ItineraryDay, ActivitySlot, DayBlock } from "./types";
+import type { Concert } from "@/app/api/concerts/route";
 
 // ---------- Static itinerary data -----------------------------------
 const ITINERARY: ItineraryDay[] = [
@@ -837,6 +838,233 @@ function FeedbackOverlay({ onClose, day }: { onClose: () => void; day: Itinerary
   );
 }
 
+// ---------- Date helper ---------------------------------------------
+function parseTripDate(label: string): string {
+  // label is like "Jun 10" — resolve to YYYY-MM-DD using current or next year
+  const now = new Date();
+  const attempt = new Date(`${label} ${now.getFullYear()}`);
+  if (!isNaN(attempt.getTime())) {
+    if (attempt < now) attempt.setFullYear(now.getFullYear() + 1);
+    return attempt.toISOString().split("T")[0];
+  }
+  return now.toISOString().split("T")[0];
+}
+
+// ---------- ConcertsPanel -------------------------------------------
+function ConcertCard({ c }: { c: Concert }) {
+  const [hover, setHover] = useState(false);
+  const dateLabel = (() => {
+    try {
+      return new Date(c.date).toLocaleDateString("en-US", {
+        month: "short", day: "numeric", weekday: "short",
+      });
+    } catch { return c.date; }
+  })();
+
+  return (
+    <a
+      href={c.url || "#"}
+      target="_blank"
+      rel="noopener noreferrer"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: "flex",
+        gap: 0,
+        background: "var(--bg-2)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--r-l)",
+        overflow: "hidden",
+        textDecoration: "none",
+        color: "inherit",
+        transition: "all .3s var(--ease)",
+        transform: hover ? "translateY(-3px)" : "none",
+        boxShadow: hover ? "0 14px 28px rgba(10,27,46,.08)" : "none",
+      }}
+    >
+      {/* Thumbnail */}
+      <div
+        style={{
+          width: 120,
+          flexShrink: 0,
+          background: c.image ? `url(${c.image}) center/cover` : "var(--accent-soft)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {!c.image && <Icon name="music" size={28} stroke="var(--accent-deep)" />}
+      </div>
+
+      {/* Info */}
+      <div style={{ padding: "18px 20px", flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: ".12em",
+              textTransform: "uppercase",
+              padding: "3px 8px",
+              borderRadius: 999,
+              background: "var(--accent-soft)",
+              color: "var(--accent-deep)",
+              border: "1px solid var(--accent)",
+            }}
+          >
+            {c.source}
+          </span>
+          <span style={{ fontSize: 11, color: "var(--text-3)" }}>{dateLabel}</span>
+        </div>
+        <div
+          style={{
+            fontSize: 16,
+            fontWeight: 600,
+            letterSpacing: "-.01em",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            marginBottom: 4,
+          }}
+        >
+          {c.name}
+        </div>
+        {c.venue && (
+          <div
+            style={{
+              fontSize: 13,
+              color: "var(--text-3)",
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+            }}
+          >
+            <Icon name="pin" size={11} stroke="var(--text-3)" />
+            {c.venue}
+          </div>
+        )}
+      </div>
+
+      {/* Arrow */}
+      <div
+        style={{
+          padding: "18px 16px",
+          display: "flex",
+          alignItems: "center",
+          color: "var(--text-3)",
+          opacity: hover ? 1 : 0.4,
+          transition: "opacity .25s var(--ease)",
+        }}
+      >
+        <Icon name="chevron-right" size={16} />
+      </div>
+    </a>
+  );
+}
+
+function ConcertsPanel({ answers }: { answers: TripAnswers }) {
+  const [concerts, setConcerts] = useState<Concert[] | null>(null);
+  const [status, setStatus] = useState<"loading" | "found" | "empty" | "error">("loading");
+
+  useEffect(() => {
+    if (!answers.destination) return;
+    const start = parseTripDate(answers.dates.start);
+    const end = parseTripDate(answers.dates.end);
+    const params = new URLSearchParams({ city: answers.destination, startDate: start, endDate: end });
+
+    fetch(`/api/concerts?${params}`)
+      .then(async (res) => {
+        const data = await res.json();
+        if (res.status === 404 || !data.concerts?.length) {
+          setStatus("empty");
+        } else {
+          setConcerts(data.concerts);
+          setStatus("found");
+        }
+      })
+      .catch(() => setStatus("error"));
+  }, [answers.destination, answers.dates.start, answers.dates.end]);
+
+  return (
+    <div style={{ marginTop: 56 }}>
+      {/* Section header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: "var(--accent-deep)",
+            letterSpacing: ".25em",
+            textTransform: "uppercase",
+          }}
+        >
+          Live concerts
+        </div>
+        <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+        <span style={{ fontSize: 12, color: "var(--text-3)" }}>
+          {answers.destination} · {answers.dates.start} – {answers.dates.end}
+        </span>
+      </div>
+
+      {/* Loading */}
+      {status === "loading" && (
+        <div
+          style={{
+            padding: "40px 0",
+            textAlign: "center",
+            color: "var(--text-3)",
+            fontSize: 14,
+          }}
+        >
+          Searching for concerts…
+        </div>
+      )}
+
+      {/* Found */}
+      {status === "found" && concerts && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          {concerts.map((c) => (
+            <ConcertCard key={c.id} c={c} />
+          ))}
+        </div>
+      )}
+
+      {/* 404 – nothing found */}
+      {(status === "empty" || status === "error") && (
+        <div
+          style={{
+            padding: "48px 32px",
+            background: "var(--bg-2)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--r-l)",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: "50%",
+              background: "var(--bg-3)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px",
+            }}
+          >
+            <Icon name="music" size={22} stroke="var(--text-3)" />
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 6 }}>No concerts found</div>
+          <div style={{ fontSize: 13, color: "var(--text-3)" }}>
+            No live music events in {answers.destination} for those dates via Ticketmaster or
+            Eventbrite.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------- Main ItineraryScreen ------------------------------------
 interface Props {
   answers: TripAnswers;
@@ -882,6 +1110,7 @@ export default function ItineraryScreen({ answers, onRestart, dark, onToggle }: 
               <BlockSection key={i} block={b} dayIdx={current.day} />
             ))}
           </div>
+          <ConcertsPanel answers={answers} />
           <FeedbackBar day={current} onOpen={() => setFeedbackOpen(true)} />
         </main>
       </div>
