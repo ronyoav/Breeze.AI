@@ -14,7 +14,7 @@ export default function BreezeApp() {
   const [screen, setScreen] = useState<Screen>("welcome");
   const [dark, setDark] = useState(false);
   const [answers, setAnswers] = useState<TripAnswers>({
-    departure: "Tel Aviv",
+    destination: "",
     dates: { start: "Jun 10", end: "Jun 17", days: 7 },
     composition: null,
     budget: "comfort",
@@ -56,8 +56,8 @@ export default function BreezeApp() {
   if (screen === "q-departure")
     return (
       <Q_Departure
-        value={answers.departure}
-        onChange={(v) => setAnswer("departure", v)}
+        value={answers.destination}
+        onChange={(v) => setAnswer("destination", v)}
         onAdvance={handleAdvance}
         onBack={() => goTo("welcome")}
         stepIdx={0}

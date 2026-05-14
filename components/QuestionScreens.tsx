@@ -92,7 +92,7 @@ function QuestionShell({
           style={{
             margin: 0,
             fontSize: "var(--h1)",
-            lineHeight: 0.95,
+            lineHeight: 1.15,
             fontWeight: 500,
             letterSpacing: "-.03em",
             maxWidth: "14ch",
@@ -129,8 +129,61 @@ function QuestionShell({
   );
 }
 
-// ---------- Q1: Departure -------------------------------------------
-const POPULAR_DEPARTURES = ["Tel Aviv", "London", "Paris", "Berlin", "New York", "Madrid", "Rome", "Amsterdam"];
+// ---------- Q1: Destination -------------------------------------------
+const DESTINATION_TREE: Record<string, Record<string, string[]>> = {
+  "Europe": {
+    "Italy": ["Rome", "Milan", "Venice", "Florence", "Naples", "Amalfi Coast"],
+    "France": ["Paris", "Lyon", "Nice", "Marseille", "Bordeaux"],
+    "Spain": ["Barcelona", "Madrid", "Seville", "Valencia", "Ibiza"],
+    "UK": ["London", "Edinburgh", "Manchester", "Bath"],
+    "Germany": ["Berlin", "Munich", "Frankfurt", "Hamburg"],
+    "Portugal": ["Lisbon", "Porto", "Faro", "Sintra"],
+    "Greece": ["Athens", "Santorini", "Mykonos", "Crete"],
+    "Netherlands": ["Amsterdam", "Rotterdam", "Utrecht"],
+    "Switzerland": ["Zurich", "Geneva", "Lucerne"],
+    "Croatia": ["Dubrovnik", "Split", "Zagreb"],
+    "Turkey": ["Istanbul", "Cappadocia", "Antalya"],
+    "Iceland": ["Reykjavik"],
+    "Poland": ["Warsaw", "Krakow"]
+  },
+  "Asia": {
+    "Japan": ["Tokyo", "Kyoto", "Osaka", "Hokkaido", "Okinawa"],
+    "Thailand": ["Bangkok", "Chiang Mai", "Phuket", "Koh Samui"],
+    "Vietnam": ["Hanoi", "Ho Chi Minh City", "Da Nang"],
+    "India": ["New Delhi", "Mumbai", "Jaipur", "Goa"],
+    "Indonesia": ["Bali", "Jakarta"],
+    "South Korea": ["Seoul", "Busan", "Jeju"],
+    "Malaysia": ["Kuala Lumpur", "Penang"],
+    "Singapore": ["Singapore"],
+    "Philippines": ["Manila", "Boracay", "Palawan"],
+    "Taiwan": ["Taipei"]
+  },
+  "North America": {
+    "USA": ["New York", "Los Angeles", "Chicago", "Miami", "Las Vegas", "San Francisco"],
+    "Canada": ["Toronto", "Vancouver", "Montreal", "Banff"],
+    "Mexico": ["Mexico City", "Cancun", "Tulum", "Oaxaca"]
+  },
+  "South America": {
+    "Brazil": ["Rio de Janeiro", "São Paulo"],
+    "Argentina": ["Buenos Aires", "Mendoza", "Patagonia"],
+    "Peru": ["Lima", "Cusco", "Machu Picchu"],
+    "Colombia": ["Bogota", "Medellin", "Cartagena"],
+    "Chile": ["Santiago", "Patagonia"]
+  },
+  "Africa": {
+    "South Africa": ["Cape Town", "Johannesburg"],
+    "Morocco": ["Marrakech", "Casablanca", "Fes"],
+    "Egypt": ["Cairo", "Luxor", "Giza"],
+    "Kenya": ["Nairobi", "Mombasa"],
+    "Tanzania": ["Zanzibar", "Serengeti"],
+    "Mauritius": ["Port Louis"]
+  },
+  "Oceania": {
+    "Australia": ["Sydney", "Melbourne", "Brisbane", "Gold Coast"],
+    "New Zealand": ["Auckland", "Queenstown", "Wellington"],
+    "Fiji": ["Nadi", "Suva"]
+  }
+};
 
 interface Q1Props {
   value: string;
@@ -144,14 +197,63 @@ interface Q1Props {
 }
 
 export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total, dark, onToggle }: Q1Props) {
-  const [text, setText] = useState(value || "");
-  const matches = text
-    ? POPULAR_DEPARTURES.filter((c) => c.toLowerCase().includes(text.toLowerCase()))
-    : POPULAR_DEPARTURES;
+  const [selections, setSelections] = useState<string[]>(() => {
+    if (!value) return [];
+    
+    for (const continent of Object.keys(DESTINATION_TREE)) {
+      if (continent === value) return [continent];
+      for (const country of Object.keys(DESTINATION_TREE[continent])) {
+        if (country === value) return [continent, country];
+        if (DESTINATION_TREE[continent][country].includes(value)) {
+          return [continent, country, value];
+        }
+      }
+    }
+    return [value];
+  });
+
+  const [customText, setCustomText] = useState("");
+
+  const currentContinent = selections[0];
+  const currentCountry = selections[1];
+  const currentCity = selections[2];
+
+  let options: string[] = [];
+  let placeholder = "";
+
+  if (!currentContinent || selections.length === 0) {
+    options = Object.keys(DESTINATION_TREE);
+    placeholder = "Type continent...";
+  } else if (!currentCountry || selections.length === 1) {
+    options = DESTINATION_TREE[currentContinent] ? Object.keys(DESTINATION_TREE[currentContinent]) : [];
+    placeholder = "Type country...";
+  } else if (!currentCity || selections.length === 2) {
+    options = (DESTINATION_TREE[currentContinent] && DESTINATION_TREE[currentContinent][currentCountry]) 
+      ? DESTINATION_TREE[currentContinent][currentCountry] 
+      : [];
+    placeholder = "Type city...";
+  } else {
+    placeholder = "";
+  }
+
+  const matches = customText
+    ? options.filter((c) => c.toLowerCase().includes(customText.toLowerCase()))
+    : options;
+
+  const handleSelect = (opt: string) => {
+    setSelections([...selections, opt]);
+    setCustomText("");
+  };
+
+  const handleRemove = () => {
+    setSelections(selections.slice(0, selections.length - 1));
+    setCustomText("");
+  };
 
   const submit = () => {
-    if (text.trim()) {
-      onChange(text.trim());
+    const finalSelection = customText.trim() ? [...selections, customText.trim()] : selections;
+    if (finalSelection.length > 0) {
+      onChange(finalSelection[finalSelection.length - 1]);
       onAdvance();
     }
   };
@@ -163,41 +265,99 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
       kicker="Question 01"
       title={
         <>
-          Where did you <span className="serif">fly in from?</span>
+          Where are you <span className="serif">flying to?</span>
         </>
       }
-      nextDisabled={!text.trim()}
+      nextDisabled={selections.length === 0 && !customText.trim()}
       onNext={submit}
       onBack={onBack}
       dark={dark}
       onToggle={onToggle}
     >
-      <div style={{ maxWidth: 680 }}>
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Type your home city…"
-          autoFocus
-          onKeyDown={(e) => {
-            if (e.key === "Enter") submit();
-          }}
+      <div style={{ maxWidth: 600 }}>
+        <div
           style={{
+            display: "flex",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 12,
             width: "100%",
-            padding: "22px 26px",
-            fontSize: 32,
-            fontWeight: 500,
-            fontVariationSettings: '"opsz" 48',
+            padding: "16px 26px",
+            minHeight: 82,
             border: "1px solid var(--border)",
             background: "var(--bg-2)",
             borderRadius: "var(--r-l)",
-            outline: "none",
-            color: "var(--text)",
-            letterSpacing: "-.02em",
           }}
-        />
+        >
+          {selections.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                background: "var(--accent-soft)",
+                color: "var(--accent-deep)",
+                padding: "8px 16px",
+                borderRadius: 999,
+                fontSize: 22,
+                fontWeight: 500,
+              }}
+            >
+              {selections[selections.length - 1]}
+              <button
+                onClick={handleRemove}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--accent-deep)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 4,
+                  borderRadius: 999,
+                }}
+              >
+                <Icon name="x" size={16} />
+              </button>
+            </div>
+          )}
+          {selections.length < 3 && (
+            <input
+              value={customText}
+              onChange={(e) => setCustomText(e.target.value)}
+              placeholder={placeholder}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  if (customText.trim() && options.includes(customText.trim())) {
+                    handleSelect(customText.trim());
+                  } else if (customText.trim()) {
+                    handleSelect(customText.trim());
+                  } else {
+                    submit();
+                  }
+                }
+              }}
+              style={{
+                flex: 1,
+                minWidth: 200,
+                fontSize: 32,
+                fontWeight: 500,
+                fontVariationSettings: '"opsz" 48',
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                color: "var(--text)",
+                letterSpacing: "-.02em",
+              }}
+            />
+          )}
+        </div>
+        
         <div style={{ marginTop: 22, display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {matches.slice(0, 8).map((c) => (
-            <SoftBtn key={c} active={text === c} onClick={() => setText(c)}>
+          {matches.slice(0, 12).map((c) => (
+            <SoftBtn key={c} active={false} onClick={() => handleSelect(c)}>
               {c}
             </SoftBtn>
           ))}
@@ -226,14 +386,35 @@ interface Q2Props {
 }
 
 export function Q_Dates({ value, onChange, onAdvance, onBack, stepIdx, total, dark, onToggle }: Q2Props) {
-  const [days, setDays] = useState(value?.days || 7);
-  const startDate = new Date(2026, 5, 10);
-  const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const endDate = new Date(startDate);
-  endDate.setDate(startDate.getDate() + days - 1);
+  const [start, setStart] = useState(() => {
+    try { return new Date(value?.start).toISOString().split('T')[0]; }
+    catch { return new Date().toISOString().split('T')[0]; }
+  });
+  const [end, setEnd] = useState(() => {
+    try { return new Date(value?.end).toISOString().split('T')[0]; }
+    catch { return new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]; }
+  });
+
+  const fmt = (dStr: string) => {
+    try {
+      const d = new Date(dStr);
+      if (isNaN(d.getTime())) return dStr;
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    } catch {
+      return dStr;
+    }
+  };
+
+  const calcDays = (s: string, e: string) => {
+    const sDate = new Date(s);
+    const eDate = new Date(e);
+    if (isNaN(sDate.getTime()) || isNaN(eDate.getTime())) return 1;
+    const diff = eDate.getTime() - sDate.getTime();
+    return Math.max(1, Math.ceil(diff / (1000 * 3600 * 24)) + 1);
+  };
 
   const submit = () => {
-    onChange({ start: fmt(startDate), end: fmt(endDate), days });
+    onChange({ start: fmt(start), end: fmt(end), days: calcDays(start, end) });
     onAdvance();
   };
 
@@ -244,7 +425,7 @@ export function Q_Dates({ value, onChange, onAdvance, onBack, stepIdx, total, da
       kicker="Question 02"
       title={
         <>
-          How long are you <span className="serif">staying?</span>
+          When are you <span className="serif">going?</span>
         </>
       }
       onNext={submit}
@@ -253,65 +434,28 @@ export function Q_Dates({ value, onChange, onAdvance, onBack, stepIdx, total, da
       onToggle={onToggle}
     >
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 40, maxWidth: 880, alignItems: "center" }}>
-        <div
-          style={{
-            padding: "32px 36px",
-            background: "var(--bg-2)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--r-l)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "baseline", gap: 16 }}>
-            <span
-              style={{
-                fontSize: 88,
-                fontWeight: 600,
-                color: "var(--accent)",
-                lineHeight: 0.85,
-                letterSpacing: "-.03em",
-                fontVariationSettings: '"opsz" 96',
-              }}
-            >
-              {days}
-            </span>
-            <span style={{ fontSize: 24, color: "var(--text-2)" }}>day{days !== 1 ? "s" : ""}</span>
-          </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-            <IconBtn onClick={() => setDays(Math.max(1, days - 1))} label="-1 day">
-              <Icon name="minus" size={18} />
-            </IconBtn>
-            <IconBtn onClick={() => setDays(Math.min(30, days + 1))} label="+1 day">
-              <Icon name="plus" size={18} />
-            </IconBtn>
-            <div style={{ display: "flex", gap: 6, marginLeft: 8 }}>
-              {[3, 5, 7, 10, 14].map((n) => (
-                <SoftBtn key={n} active={days === n} onClick={() => setDays(n)}>
-                  {n}
-                </SoftBtn>
-              ))}
-            </div>
-          </div>
-        </div>
-
         <div>
-          <div
-            style={{
-              color: "var(--text-3)",
-              fontSize: 13,
-              letterSpacing: ".08em",
-              textTransform: "uppercase",
-              marginBottom: 14,
-            }}
-          >
-            Your dates
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ fontSize: 32, fontWeight: 500, letterSpacing: "-.02em" }}>{fmt(startDate)}</div>
-            <span style={{ color: "var(--text-3)" }}>→</span>
-            <div style={{ fontSize: 32, fontWeight: 500, letterSpacing: "-.02em" }}>{fmt(endDate)}</div>
-          </div>
-          <div style={{ marginTop: 8, color: "var(--text-3)", fontSize: 14 }}>2026</div>
+          <label style={{ display: "block", color: "var(--text-3)", fontSize: 13, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 10 }}>Start Date</label>
+          <input
+            type="date"
+            value={start}
+            onChange={(e) => setStart(e.target.value)}
+            style={{ width: "100%", padding: "16px 20px", fontSize: 24, borderRadius: "var(--r)", border: "1px solid var(--border)", background: "var(--bg-2)", color: "var(--text)", outline: "none", fontFamily: "inherit" }}
+          />
         </div>
+        <div>
+          <label style={{ display: "block", color: "var(--text-3)", fontSize: 13, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 10 }}>End Date</label>
+          <input
+            type="date"
+            value={end}
+            onChange={(e) => setEnd(e.target.value)}
+            min={start}
+            style={{ width: "100%", padding: "16px 20px", fontSize: 24, borderRadius: "var(--r)", border: "1px solid var(--border)", background: "var(--bg-2)", color: "var(--text)", outline: "none", fontFamily: "inherit" }}
+          />
+        </div>
+      </div>
+      <div style={{ marginTop: 32, fontSize: 18, color: "var(--text-2)" }}>
+        Duration: <strong style={{ color: "var(--accent)", fontSize: 24, padding: "0 6px" }}>{calcDays(start, end)}</strong> days
       </div>
     </QuestionShell>
   );
