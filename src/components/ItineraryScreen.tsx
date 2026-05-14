@@ -2,170 +2,197 @@
 
 import { useState } from "react";
 import { IconBtn, Icon, Wordmark } from "./ui";
-import type { TripAnswers, AttractionItem, ItineraryData } from "./types";
+import type { TripAnswers, GeneratedItinerary, ItineraryDay, ItinerarySlot } from "./types";
 
-// ---------- Date display helper ------------------------------------
 function fmtDisplay(d: string): string {
   const parsed = new Date(d);
   if (isNaN(parsed.getTime())) return d;
   return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-// ---------- Shared UI helpers -------------------------------------
-function SectionHeader({ label, sub }: { label: string; sub?: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent-deep)", letterSpacing: ".25em", textTransform: "uppercase" }}>
-        {label}
-      </div>
-      <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-      {sub && <span style={{ fontSize: 12, color: "var(--text-3)" }}>{sub}</span>}
-    </div>
-  );
+// ---------- Category config -------------------------------------------
+const CATEGORY_META: Record<string, { icon: string; color: string; label: string }> = {
+  restaurants: { icon: "utensils", color: "#f59e0b", label: "Restaurant" },
+  treks:       { icon: "map",      color: "#22c55e", label: "Hike & Tour" },
+  music:       { icon: "music",    color: "#f43f5e", label: "Live Music" },
+  nightlife:   { icon: "moon",     color: "#8b5cf6", label: "Nightlife" },
+  history:     { icon: "clock",    color: "#3b82f6", label: "History" },
+  sports:      { icon: "activity", color: "#eab308", label: "Sports" },
+  extreme:     { icon: "zap",      color: "#ef4444", label: "Adventure" },
+  beach:       { icon: "sun",      color: "#06b6d4", label: "Beach" },
+  spa:         { icon: "heart",    color: "#ec4899", label: "Spa" },
+  shopping:    { icon: "bag",      color: "#f97316", label: "Shopping" },
+  viral:       { icon: "sparkle",  color: "#a855f7", label: "Viral Spot" },
+};
+
+function getCategoryMeta(category: string) {
+  return CATEGORY_META[category] ?? { icon: "star", color: "var(--accent-deep)", label: category };
 }
 
-function EmptyState({ icon, title, body }: { icon: string; title: string; body: string }) {
-  return (
-    <div style={{ padding: "48px 32px", background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r-l)", textAlign: "center" }}>
-      <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--bg-3)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-        <Icon name={icon} size={22} stroke="var(--text-3)" />
-      </div>
-      <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 6 }}>{title}</div>
-      <div style={{ fontSize: 13, color: "var(--text-3)" }}>{body}</div>
-    </div>
-  );
-}
-
-// ---------- Generic attraction card --------------------------------
-function AttractionCard({ item, accent = false }: { item: AttractionItem; accent?: boolean }) {
+// ---------- Slot card --------------------------------------------------
+function SlotCard({ slot, isLast }: { slot: ItinerarySlot; isLast: boolean }) {
   const [hover, setHover] = useState(false);
+  const meta = getCategoryMeta(slot.category);
+
   return (
-    <a
-      href={item.url || "#"}
-      target="_blank"
-      rel="noopener noreferrer"
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
-        padding: "20px 22px",
-        background: "var(--bg-2)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--r-l)",
-        textDecoration: "none",
-        color: "inherit",
-        transition: "all .3s var(--ease)",
-        transform: hover ? "translateY(-3px)" : "none",
-        boxShadow: hover ? "0 14px 28px rgba(10,27,46,.08)" : "none",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-.01em", marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {item.name}
-          </div>
-          {/* Restaurant extras */}
-          {(item.cuisine || item.priceRange) && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
-              {item.cuisine && <span style={{ fontSize: 11, color: "var(--text-3)" }}>{item.cuisine}</span>}
-              {item.priceRange && (
-                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent-deep)", background: "var(--accent-soft)", border: "1px solid var(--accent)", padding: "1px 7px", borderRadius: 999 }}>
-                  {item.priceRange}
-                </span>
-              )}
-            </div>
-          )}
-          {/* Concert extras */}
-          {(item.date || item.venue || item.source) && (
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
-              {item.source && (
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", padding: "2px 7px", borderRadius: 999, background: "var(--accent-soft)", color: "var(--accent-deep)", border: "1px solid var(--accent)" }}>
-                  {item.source}
-                </span>
-              )}
-              {item.date && <span style={{ fontSize: 11, color: "var(--text-3)" }}>{fmtDisplay(item.date)}</span>}
-              {item.venue && (
-                <span style={{ fontSize: 12, color: "var(--text-3)", display: "flex", alignItems: "center", gap: 4 }}>
-                  <Icon name="pin" size={10} stroke="var(--text-3)" />{item.venue}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-        {item.image && (
-          <div style={{ width: 56, height: 56, borderRadius: "var(--r-s)", background: `url(${item.image}) center/cover`, flexShrink: 0 }} />
+    <div style={{ display: "flex", gap: 0, position: "relative" }}>
+      {/* Time + timeline */}
+      <div style={{ width: 68, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", paddingRight: 16, paddingTop: 2 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-3)", fontVariantNumeric: "tabular-nums", letterSpacing: ".02em" }}>
+          {slot.time}
+        </span>
+        {slot.duration && (
+          <span style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>{slot.duration}</span>
         )}
       </div>
 
-      {item.description && (
-        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: "var(--text-2)" }}>
-          {item.description}
-        </p>
-      )}
+      {/* Dot + vertical line */}
+      <div style={{ width: 24, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 4 }}>
+        <div style={{
+          width: 12, height: 12, borderRadius: 999, flexShrink: 0,
+          background: meta.color,
+          border: `2.5px solid ${meta.color}`,
+          boxShadow: `0 0 0 3px ${meta.color}22`,
+        }} />
+        {!isLast && (
+          <div style={{ width: 2, flex: 1, background: "var(--border)", marginTop: 6, minHeight: 40 }} />
+        )}
+      </div>
 
-      {(item.address || item.tip) && (
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {item.address && (
+      {/* Card */}
+      <div
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        style={{
+          flex: 1,
+          marginLeft: 16,
+          marginBottom: isLast ? 0 : 20,
+          padding: "16px 20px",
+          background: hover ? "var(--bg-3)" : "var(--bg-2)",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--r-l)",
+          transition: "all .25s var(--ease)",
+          transform: hover ? "translateY(-1px)" : "none",
+          boxShadow: hover ? "0 8px 20px rgba(10,27,46,.07)" : "none",
+        }}
+      >
+        {/* Header row */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+            background: `${meta.color}18`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <Icon name={meta.icon} size={14} stroke={meta.color} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-.01em" }}>
+                {slot.title}
+              </span>
+              <span style={{
+                fontSize: 10, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase",
+                padding: "2px 8px", borderRadius: 999,
+                background: `${meta.color}18`,
+                color: meta.color,
+                border: `1px solid ${meta.color}40`,
+              }}>
+                {meta.label}
+              </span>
+              {slot.price && (
+                <span style={{ fontSize: 11, color: "var(--text-3)" }}>{slot.price}</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Description */}
+        {slot.description && (
+          <p style={{ margin: "0 0 8px 38px", fontSize: 13, lineHeight: 1.6, color: "var(--text-2)" }}>
+            {slot.description}
+          </p>
+        )}
+
+        {/* Address + tip */}
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginLeft: 38 }}>
+          {slot.address && (
             <span style={{ fontSize: 12, color: "var(--text-3)", display: "flex", alignItems: "center", gap: 4 }}>
-              <Icon name="pin" size={11} stroke="var(--text-3)" />{item.address}
+              <Icon name="pin" size={11} stroke="var(--text-3)" />{slot.address}
             </span>
           )}
-          {item.tip && (
-            <span style={{ fontSize: 12, color: accent ? "var(--accent-deep)" : "var(--text-3)", background: accent ? "var(--accent-soft)" : "transparent", padding: accent ? "2px 8px" : "0", borderRadius: 999, border: accent ? "1px solid var(--accent)" : "none" }}>
-              {item.tip}
+          {slot.tip && (
+            <span style={{
+              fontSize: 12, color: "var(--accent-deep)",
+              background: "var(--accent-soft)", border: "1px solid var(--accent)",
+              padding: "2px 9px", borderRadius: 999,
+            }}>
+              {slot.tip}
             </span>
           )}
         </div>
-      )}
-    </a>
+      </div>
+    </div>
   );
 }
 
-// ---------- Category section ---------------------------------------
-const INTEREST_META: Record<string, { label: string; icon: string; accentTip?: boolean }> = {
-  restaurants: { label: "Restaurants", icon: "utensils" },
-  treks:       { label: "Hikes & Tours", icon: "map", accentTip: true },
-  music:       { label: "Live Concerts", icon: "music" },
-  nightlife:   { label: "Nightlife", icon: "moon" },
-  history:     { label: "History & Culture", icon: "clock" },
-  sports:      { label: "Sports", icon: "activity" },
-  extreme:     { label: "Adventure", icon: "zap" },
-  beach:       { label: "Beach & Resorts", icon: "sun" },
-  spa:         { label: "Spa & Wellness", icon: "heart" },
-  shopping:    { label: "Shopping", icon: "bag" },
-  viral:       { label: "Viral Spots", icon: "sparkle" },
-};
-
-function InterestSection({
-  interest,
-  items,
-  sub,
-}: {
-  interest: string;
-  items: AttractionItem[];
-  sub?: string;
-}) {
-  const meta = INTEREST_META[interest] ?? { label: interest, icon: "star" };
-
+// ---------- Day view --------------------------------------------------
+function DayView({ day }: { day: ItineraryDay }) {
   return (
-    <section style={{ marginTop: 56 }}>
-      <SectionHeader label={meta.label} sub={sub} />
-      {items.length === 0 ? (
-        <EmptyState icon={meta.icon} title={`No ${meta.label.toLowerCase()} found`} body={`Nothing returned for this category.`} />
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          {items.map((item) => (
-            <AttractionCard key={item.id} item={item} accent={meta.accentTip} />
-          ))}
+    <div>
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".2em", textTransform: "uppercase", marginBottom: 4 }}>
+          Day {day.day}
         </div>
-      )}
-    </section>
+        <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-.02em" }}>{day.date}</div>
+        {day.theme && (
+          <div style={{ fontSize: 14, color: "var(--text-3)", marginTop: 4, fontStyle: "italic" }}>{day.theme}</div>
+        )}
+      </div>
+
+      <div>
+        {day.slots.map((slot, i) => (
+          <SlotCard key={`${slot.time}-${i}`} slot={slot} isLast={i === day.slots.length - 1} />
+        ))}
+      </div>
+    </div>
   );
 }
 
-// ---------- Top bar ------------------------------------------------
+// ---------- Day tabs --------------------------------------------------
+function DayTabs({ days, activeDay, onSelect }: { days: ItineraryDay[]; activeDay: number; onSelect: (d: number) => void }) {
+  return (
+    <div style={{
+      display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4,
+      scrollbarWidth: "none", msOverflowStyle: "none",
+      marginBottom: 40,
+    }}>
+      {days.map((day) => {
+        const active = day.day === activeDay;
+        return (
+          <button
+            key={day.day}
+            onClick={() => onSelect(day.day)}
+            style={{
+              padding: "10px 18px", borderRadius: "var(--r)", flexShrink: 0,
+              background: active ? "var(--ink)" : "var(--bg-2)",
+              border: `1px solid ${active ? "var(--ink)" : "var(--border)"}`,
+              color: active ? "#fff" : "var(--text-2)",
+              cursor: "pointer", fontFamily: "inherit",
+              transition: "all .2s var(--ease)",
+            }}
+          >
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", opacity: active ? 0.7 : 0.6 }}>
+              Day {day.day}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, marginTop: 3 }}>{day.date}</div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------- Top bar ---------------------------------------------------
 function SmallActionBtn({ icon, label, onClick }: { icon: string; label: string; onClick?: () => void }) {
   const [hover, setHover] = useState(false);
   return (
@@ -213,16 +240,35 @@ function ItineraryTopBar({ answers, dark, onToggle, onRestart }: { answers: Trip
   );
 }
 
-// ---------- Sidebar ------------------------------------------------
+// ---------- Sidebar ---------------------------------------------------
 const BUDGET_LABEL: Record<string, string> = { budget: "Budget", comfort: "Comfort", luxury: "Luxury" };
 
-function TripSidebar({ answers }: { answers: TripAnswers }) {
+const INTEREST_META: Record<string, { label: string; icon: string }> = {
+  restaurants: { label: "Restaurants", icon: "utensils" },
+  treks:       { label: "Hikes & Tours", icon: "map" },
+  music:       { label: "Live Concerts", icon: "music" },
+  nightlife:   { label: "Nightlife", icon: "moon" },
+  history:     { label: "History & Culture", icon: "clock" },
+  sports:      { label: "Sports", icon: "activity" },
+  extreme:     { label: "Adventure", icon: "zap" },
+  beach:       { label: "Beach & Resorts", icon: "sun" },
+  spa:         { label: "Spa & Wellness", icon: "heart" },
+  shopping:    { label: "Shopping", icon: "bag" },
+  viral:       { label: "Viral Spots", icon: "sparkle" },
+};
+
+function TripSidebar({ answers, days, activeDay, onSelectDay }: {
+  answers: TripAnswers;
+  days: ItineraryDay[];
+  activeDay: number;
+  onSelectDay: (d: number) => void;
+}) {
   const comp = answers.composition === "couple" ? "Couple" : answers.composition === "solo" ? "Solo" : answers.composition === "family" ? "Family" : "Friends";
   return (
-    <aside style={{ borderRight: "1px solid var(--border)", padding: "36px 22px", position: "sticky", top: 78, alignSelf: "flex-start", height: "calc(100vh - 78px)", overflowY: "auto" }}>
-      <div style={{ padding: "18px 16px", background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r)", marginBottom: 24 }}>
-        <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: "-.01em", marginBottom: 12 }}>{answers.destination}</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <aside style={{ borderRight: "1px solid var(--border)", padding: "28px 18px", position: "sticky", top: 78, alignSelf: "flex-start", height: "calc(100vh - 78px)", overflowY: "auto" }}>
+      <div style={{ padding: "16px 14px", background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r)", marginBottom: 20 }}>
+        <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-.01em", marginBottom: 10 }}>{answers.destination}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-2)" }}>
             <Icon name="calendar" size={13} stroke="var(--text-3)" />
             {fmtDisplay(answers.dates.start)} – {fmtDisplay(answers.dates.end)}
@@ -230,6 +276,7 @@ function TripSidebar({ answers }: { answers: TripAnswers }) {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-2)" }}>
             <Icon name="users" size={13} stroke="var(--text-3)" />{comp}
+            {answers.ages && <span style={{ color: "var(--text-3)" }}>· {answers.ages}</span>}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-2)" }}>
             <Icon name="wallet" size={13} stroke="var(--text-3)" />{BUDGET_LABEL[answers.budget] ?? answers.budget}
@@ -237,15 +284,45 @@ function TripSidebar({ answers }: { answers: TripAnswers }) {
         </div>
       </div>
 
-      <div style={{ fontSize: 11, color: "var(--text-3)", letterSpacing: ".15em", textTransform: "uppercase", marginBottom: 12, fontWeight: 600 }}>
-        Your interests
+      {/* Day nav */}
+      {days.length > 0 && (
+        <>
+          <div style={{ fontSize: 10, color: "var(--text-3)", letterSpacing: ".15em", textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>
+            Days
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 20 }}>
+            {days.map((day) => (
+              <button
+                key={day.day}
+                onClick={() => onSelectDay(day.day)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
+                  borderRadius: "var(--r)", background: activeDay === day.day ? "var(--ink)" : "transparent",
+                  border: `1px solid ${activeDay === day.day ? "var(--ink)" : "transparent"}`,
+                  color: activeDay === day.day ? "#fff" : "var(--text-2)",
+                  fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
+                  transition: "all .2s var(--ease)", textAlign: "left",
+                }}
+              >
+                <span style={{ fontSize: 10, fontWeight: 700, opacity: 0.6, width: 32, flexShrink: 0 }}>Day {day.day}</span>
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12 }}>{day.date}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Interests legend */}
+      <div style={{ fontSize: 10, color: "var(--text-3)", letterSpacing: ".15em", textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>
+        Interests
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
         {answers.interests.map((id) => {
           const meta = INTEREST_META[id];
+          const catMeta = getCategoryMeta(id);
           return (
-            <div key={id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: "var(--r)", background: "var(--bg-2)", border: "1px solid var(--border)", fontSize: 13, fontWeight: 500, color: "var(--text-2)" }}>
-              <Icon name={meta?.icon ?? "star"} size={14} stroke="var(--accent-deep)" />
+            <div key={id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: "var(--r)", background: "var(--bg-2)", border: "1px solid var(--border)", fontSize: 12, fontWeight: 500, color: "var(--text-2)" }}>
+              <Icon name={meta?.icon ?? "star"} size={13} stroke={catMeta.color} />
               {meta?.label ?? id}
             </div>
           );
@@ -255,7 +332,7 @@ function TripSidebar({ answers }: { answers: TripAnswers }) {
   );
 }
 
-// ---------- Feedback bar -------------------------------------------
+// ---------- Feedback bar & overlay ------------------------------------
 function FeedbackBar({ onOpen }: { onOpen: () => void }) {
   const [hover, setHover] = useState(false);
   return (
@@ -307,46 +384,40 @@ function FeedbackOverlay({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ---------- Main screen --------------------------------------------
+// ---------- Main screen -----------------------------------------------
 interface Props {
   answers: TripAnswers;
-  itineraryData: ItineraryData;
+  generatedItinerary: GeneratedItinerary;
   onRestart: () => void;
   dark: boolean;
   onToggle: () => void;
 }
 
-export default function ItineraryScreen({ answers, itineraryData, onRestart, dark, onToggle }: Props) {
+export default function ItineraryScreen({ answers, generatedItinerary, onRestart, dark, onToggle }: Props) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const interests = answers.interests ?? [];
+  const days = generatedItinerary.days ?? [];
+  const [activeDay, setActiveDay] = useState(days[0]?.day ?? 1);
 
-  // Concert date context for section sub-label
-  const concertSub = `${fmtDisplay(answers.dates.start)} – ${fmtDisplay(answers.dates.end)}`;
+  const currentDay = days.find((d) => d.day === activeDay) ?? days[0];
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
       <ItineraryTopBar answers={answers} dark={dark} onToggle={onToggle} onRestart={onRestart} />
 
-      <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", maxWidth: 1440, margin: "0 auto", paddingTop: 78 }}>
-        <TripSidebar answers={answers} />
+      <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", maxWidth: 1440, margin: "0 auto", paddingTop: 78 }}>
+        <TripSidebar answers={answers} days={days} activeDay={activeDay} onSelectDay={setActiveDay} />
 
         <main style={{ padding: "36px 48px 120px", minWidth: 0 }}>
-          {interests.length === 0 && (
+          {days.length === 0 ? (
             <div style={{ paddingTop: 80, textAlign: "center", color: "var(--text-3)", fontSize: 15 }}>
-              No interests selected. Go back and pick what you love.
+              No itinerary generated. Try restarting with different preferences.
             </div>
+          ) : (
+            <>
+              <DayTabs days={days} activeDay={activeDay} onSelect={setActiveDay} />
+              {currentDay && <DayView day={currentDay} />}
+            </>
           )}
-
-          {interests.map((interest) => {
-            const items = itineraryData[interest] ?? [];
-            const sub =
-              interest === "music" ? concertSub :
-              interest === "restaurants" ? (BUDGET_LABEL[answers.budget] ?? answers.budget) :
-              undefined;
-            return (
-              <InterestSection key={interest} interest={interest} items={items} sub={sub} />
-            );
-          })}
 
           <FeedbackBar onOpen={() => setFeedbackOpen(true)} />
         </main>

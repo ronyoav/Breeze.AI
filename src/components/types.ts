@@ -35,5 +35,30 @@ export interface AttractionItem {
   priceRange?: string;
 }
 
-// Map of interest id → fetched items
+// Map of interest id → fetched items (kept for GeneratingScreen internal use)
 export type ItineraryData = Record<string, AttractionItem[]>;
+
+// Calendar-based itinerary output from the scheduler
+export interface ItinerarySlot {
+  time: string;
+  duration: string;
+  title: string;
+  category: string;
+  description: string;
+  address?: string;
+  price?: string;
+  tip?: string;
+  url?: string;
+  isDinner?: boolean;
+}
+
+export interface ItineraryDay {
+  day: number;
+  date: string;
+  theme: string;
+  slots: ItinerarySlot[];
+}
+
+export interface GeneratedItinerary {
+  days: ItineraryDay[];
+}
