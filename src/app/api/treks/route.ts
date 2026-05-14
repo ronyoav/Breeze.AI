@@ -11,6 +11,8 @@ export interface Trek {
 
 export async function GET(req: NextRequest) {
   const city = req.nextUrl.searchParams.get("city");
+  const daysStr = req.nextUrl.searchParams.get("days") ?? "3";
+  const days = Math.max(1, parseInt(daysStr, 10) || 3);
   if (!city) {
     return NextResponse.json({ error: "Missing city" }, { status: 400 });
   }
@@ -29,7 +31,7 @@ export async function GET(req: NextRequest) {
     body: JSON.stringify({
       api_key: tavilyKey,
       query: `best hiking trails treks outdoor tours guided walks ${city}`,
-      max_results: 10,
+      max_results: Math.max(5, days + 2),
     }),
     next: { revalidate: 86400 },
   });
@@ -74,7 +76,7 @@ Return ONLY a valid JSON array:
     "tip": "difficulty, duration, or best season"
   }
 ]
-Keep 6-10 distinct options. Output ONLY the JSON array.
+Keep ${days} to ${days + 2} distinct options. Output ONLY the JSON array.
 
 Search results:
 ${rawText}`,

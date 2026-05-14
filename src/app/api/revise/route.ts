@@ -16,15 +16,54 @@ async function llm(content: string, maxTokens: number, apiKey: string): Promise<
   return data.choices?.[0]?.message?.content ?? "";
 }
 
+function parseLocal(dStr: string): Date {
+  const match = dStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10));
+  }
+  
+  if (!/\d{4}/.test(dStr)) {
+    const now = new Date();
+    const attempt = new Date(`${dStr} ${now.getFullYear()}`);
+    if (!isNaN(attempt.getTime())) {
+      const attemptVal = attempt.getMonth() * 100 + attempt.getDate();
+      const nowVal = now.getMonth() * 100 + now.getDate();
+      if (attemptVal < nowVal) {
+        attempt.setFullYear(now.getFullYear() + 1);
+      }
+      return attempt;
+    }
+  }
+
+  const d = new Date(dStr);
+  return isNaN(d.getTime()) ? new Date() : d;
+}
+
+function getTrueDate(startDate: string, dayIndex: number): string {
+  const d = parseLocal(startDate);
+  const offset = isNaN(dayIndex) ? 0 : dayIndex;
+  d.setDate(d.getDate() + offset);
+  return d.toLocaleDateString("en-US", { weekday: "short", year: "numeric", month: "short", day: "numeric" });
+}
+
 function parseTripDate(label: string): string {
   if (/^\d{4}-\d{2}-\d{2}$/.test(label)) return label;
   const now = new Date();
   const attempt = new Date(`${label} ${now.getFullYear()}`);
   if (!isNaN(attempt.getTime())) {
-    if (attempt < now) attempt.setFullYear(now.getFullYear() + 1);
-    return attempt.toISOString().split("T")[0];
+    const attemptVal = attempt.getMonth() * 100 + attempt.getDate();
+    const nowVal = now.getMonth() * 100 + now.getDate();
+    if (attemptVal < nowVal) attempt.setFullYear(now.getFullYear() + 1);
+    
+    const yyyy = attempt.getFullYear();
+    const mm = String(attempt.getMonth() + 1).padStart(2, '0');
+    const dd = String(attempt.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   }
-  return now.toISOString().split("T")[0];
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -51,92 +90,111 @@ Request: "${feedback}"`,
 
     const headers = { "x-revise-mode": mode };
 
-    // ---------- RESCHEDULE path ----------
-    if (mode === "RESCHEDULE") {
-      const updatedText = await llm(
-        `Apply the following change to this travel itinerary. Only modify what is asked — keep the exact same JSON shape.
-Return ONLY the JSON object, no markdown fences.
-
-Change request: "${feedback}"
-
-Current itinerary:
-${JSON.stringify({ days: itinerary.days }, null, 2)}`,
-        4096, llmKey
-      );
-      const jsonMatch = updatedText.match(/\{[\s\S]*\}/);
-      const updated: GeneratedItinerary = jsonMatch ? JSON.parse(jsonMatch[0]) : itinerary;
-      return NextResponse.json({ ...updated, pool }, { headers });
-    }
+    let mergedPool = (pool ?? []) as AttractionItem[];
 
     // ---------- FETCH path ----------
-    // Identify which categories need fresh data
-    const catText = await llm(
-      `Which attraction categories need fresh data for this request?
+    if (mode === "FETCH") {
+      const catText = await llm(
+        `Which attraction categories need fresh data for this request?
 Available: restaurants, treks, music, nightlife, history, sports, extreme, beach, spa, shopping, viral
 Return ONLY a JSON array of strings, e.g. ["beach","restaurants"]
 Request: "${feedback}"`,
-      100, llmKey
-    );
-    let cats: string[] = [];
-    try {
-      const s = catText.indexOf("["), e = catText.lastIndexOf("]");
-      if (s !== -1) cats = JSON.parse(catText.slice(s, e + 1));
-    } catch { cats = []; }
-    if (cats.length === 0) cats = answers.interests.slice(0, 2);
+        100, llmKey
+      );
+      let cats: string[] = [];
+      try {
+        const s = catText.indexOf("["), e = catText.lastIndexOf("]");
+        if (s !== -1) cats = JSON.parse(catText.slice(s, e + 1));
+      } catch { cats = []; }
+      if (cats.length === 0) cats = answers.interests.slice(0, 2);
 
-    // Fetch fresh attractions for those categories
-    const origin = req.nextUrl.origin;
-    const city = encodeURIComponent(answers.destination);
-    const startDate = parseTripDate(answers.dates.start);
-    const endDate = parseTripDate(answers.dates.end);
+      const origin = req.nextUrl.origin;
+      const city = encodeURIComponent(answers.destination);
+      const startDate = parseTripDate(answers.dates.start);
+      const endDate = parseTripDate(answers.dates.end);
 
-    const freshResults = await Promise.allSettled(
-      cats.map(async (cat): Promise<AttractionItem[]> => {
-        try {
-          let url: string;
-          if (cat === "restaurants") url = `${origin}/api/restaurants?city=${city}&budget=${answers.budget}`;
-          else if (cat === "treks") url = `${origin}/api/treks?city=${city}`;
-          else if (cat === "music") url = `${origin}/api/concerts?city=${city}&startDate=${startDate}&endDate=${endDate}`;
-          else url = `${origin}/api/attractions?city=${city}&category=${cat}&budget=${answers.budget}`;
-          const r = await fetch(url);
-          const d = await r.json();
-          return (d.restaurants ?? d.treks ?? d.concerts ?? d.attractions ?? []) as AttractionItem[];
-        } catch { return []; }
-      })
-    );
+      const freshResults = await Promise.allSettled(
+        cats.map(async (cat): Promise<AttractionItem[]> => {
+          try {
+            let url: string;
+            const days = answers.dates.days;
+            if (cat === "restaurants") url = `${origin}/api/restaurants?city=${city}&budget=${answers.budget}&days=${days}`;
+            else if (cat === "treks") url = `${origin}/api/treks?city=${city}&days=${days}`;
+            else if (cat === "music") url = `${origin}/api/concerts?city=${city}&startDate=${startDate}&endDate=${endDate}&days=${days}`;
+            else url = `${origin}/api/attractions?city=${city}&category=${cat}&budget=${answers.budget}&days=${days}`;
+            const r = await fetch(url);
+            const d = await r.json();
+            return (d.restaurants ?? d.treks ?? d.concerts ?? d.attractions ?? []) as AttractionItem[];
+          } catch { return []; }
+        })
+      );
 
-    const freshItems = freshResults.flatMap(r => r.status === "fulfilled" ? r.value : []);
-    const refreshedCats = new Set(cats);
-    const oldPool = (pool ?? []) as AttractionItem[];
+      const freshItems = freshResults.flatMap(r => r.status === "fulfilled" ? r.value : []);
+      const refreshedCats = new Set(cats);
 
-    // Merge: keep existing items whose category isn't being refreshed
-    const mergedPool: AttractionItem[] = [
-      ...oldPool.filter(item => {
-        const cat = (item as AttractionItem).id?.split("-")[0] ?? "";
-        return !refreshedCats.has(cat);
-      }),
-      ...freshItems,
-    ];
+      mergedPool = [
+        ...mergedPool.filter(item => {
+          const cat = item.id?.split("-")[0] ?? "";
+          return !refreshedCats.has(cat);
+        }),
+        ...freshItems,
+      ];
+    }
 
-    // Re-schedule with merged pool + user feedback as highest priority constraint
-    const scheduleRes = await fetch(`${origin}/api/schedule`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        items: mergedPool,
-        city: answers.destination,
-        days: answers.dates.days,
-        startDate: answers.dates.start,
-        composition: answers.composition ?? "friends",
-        budget: answers.budget,
-        interests: [...new Set([...answers.interests, ...cats])],
-        ages: answers.ages,
-        userRequest: feedback,
-      }),
-    });
+    // ---------- UNIFIED REVISE path ----------
+    const prompt = `You are Breeze.ai, a travel planner. Apply the user's change request to the current itinerary.
+    
+CRITICAL RULES:
+1. DO NOT remove or add days. The number of days MUST remain exactly ${answers.dates.days}.
+2. Only add, remove, or swap specific activities as requested. Keep the rest of the schedule intact as much as possible.
+3. You can pull new activities from the ATTRACTION POOL if needed.
+4. Output ONLY valid JSON — an array of days with slots. 
+5. For each slot, ONLY output "time", "duration", "id" (matching an id from the pool), and "category". DO NOT output title, description, address, price, or tip.
+6. If you cannot fulfill the request (e.g. no suitable attractions), add a friendly "message" field at the root of the JSON.
 
-    const updated: GeneratedItinerary = await scheduleRes.json();
-    return NextResponse.json({ ...updated, pool: mergedPool }, { headers });
+Change request: "${feedback}"
+
+ATTRACTION POOL:
+${JSON.stringify(mergedPool)}
+
+CURRENT ITINERARY (for reference):
+${JSON.stringify({ days: itinerary.days.map((d, i) => ({ ...d, date: getTrueDate(answers.dates.start, (d.day || i + 1) - 1), slots: d.slots.map(s => ({ time: s.time, duration: s.duration, id: s.id, category: s.category })) })) }, null, 2)}
+
+Return ONLY valid JSON matching this shape:
+{"days":[{"day":1,"date":"Thu, May 21, 2026","theme":"...","slots":[{"time":"09:30","duration":"2h","id":"...","category":"..."}]}], "message": "..."}`;
+
+    const updatedText = await llm(prompt, 8192, llmKey);
+    const jsonMatch = updatedText.match(/\{[\s\S]*\}/);
+    const result = jsonMatch ? JSON.parse(jsonMatch[0]) : itinerary;
+
+    // Post-process slots
+    if (result.days && Array.isArray(result.days)) {
+      for (const day of result.days) {
+        if (day.slots && Array.isArray(day.slots)) {
+          for (const slot of day.slots) {
+            const item: any = mergedPool.find((i: any) => i.id === slot.id);
+            if (item) {
+              slot.title = item.name || "Unknown";
+              slot.description = item.description || "";
+              slot.address = item.address || "";
+              slot.price = item.priceRange || "Varies";
+              slot.tip = item.tip || "";
+              slot.url = item.url || "";
+            } else {
+              // fallback to old slot if id missing or LLM hallucinated
+              const oldSlot = itinerary.days.flatMap(d => d.slots).find(s => s.id === slot.id);
+              if (oldSlot) {
+                Object.assign(slot, oldSlot);
+              } else if (!slot.title) {
+                slot.title = "Unknown Activity";
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return NextResponse.json({ ...result, pool: mergedPool }, { headers });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Unknown", days: [] },

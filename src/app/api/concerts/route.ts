@@ -8,6 +8,8 @@ export async function GET(req: NextRequest) {
   const city = searchParams.get("city");
   const startDate = searchParams.get("startDate");
   const endDate = searchParams.get("endDate");
+  const daysStr = searchParams.get("days") ?? "3";
+  const days = Math.max(1, parseInt(daysStr, 10) || 3);
 
   if (!city || !startDate || !endDate) {
     return NextResponse.json({ concerts: [] }, { status: 400 });
@@ -19,11 +21,11 @@ export async function GET(req: NextRequest) {
   const concerts: Concert[] = [];
 
   if (tmKey) {
-    const tm = await fetchTicketmaster(city, startDate, endDate, tmKey);
+    const tm = await fetchTicketmaster(city, startDate, endDate, tmKey, days);
     concerts.push(...tm);
   }
   if (ebKey) {
-    const eb = await fetchEventbrite(city, startDate, endDate, ebKey);
+    const eb = await fetchEventbrite(city, startDate, endDate, ebKey, days);
     concerts.push(...eb);
   }
 
@@ -32,7 +34,7 @@ export async function GET(req: NextRequest) {
     const tavilyKey = process.env.API_KEY_TAVILY;
     const llmKey = process.env.API_KEY_LLM;
     if (tavilyKey && llmKey) {
-      const fallback = await fetchConcertsTavily(city, startDate, endDate, tavilyKey, llmKey);
+      const fallback = await fetchConcertsTavily(city, startDate, endDate, tavilyKey, llmKey, days);
       concerts.push(...fallback);
     }
   }
@@ -44,7 +46,7 @@ export async function GET(req: NextRequest) {
 }
 
 async function fetchTicketmaster(
-  city: string, startDate: string, endDate: string, apiKey: string
+  city: string, startDate: string, endDate: string, apiKey: string, days: number
 ): Promise<Concert[]> {
   const url = new URL("https://app.ticketmaster.com/discovery/v2/events.json");
   url.searchParams.set("apikey", apiKey);
@@ -52,7 +54,7 @@ async function fetchTicketmaster(
   url.searchParams.set("startDateTime", `${startDate}T00:00:00Z`);
   url.searchParams.set("endDateTime", `${endDate}T23:59:59Z`);
   url.searchParams.set("classificationName", "music");
-  url.searchParams.set("size", "12");
+  url.searchParams.set("size", String(Math.max(6, days + 2)));
 
   const res = await fetch(url.toString(), { next: { revalidate: 3600 } });
   if (!res.ok) return [];
@@ -78,7 +80,7 @@ async function fetchTicketmaster(
 }
 
 async function fetchEventbrite(
-  city: string, startDate: string, endDate: string, apiKey: string
+  city: string, startDate: string, endDate: string, apiKey: string, days: number
 ): Promise<Concert[]> {
   const url = new URL("https://www.eventbriteapi.com/v3/events/search/");
   url.searchParams.set("location.address", city);
@@ -93,7 +95,7 @@ async function fetchEventbrite(
   });
   if (!res.ok) return [];
   const data = await res.json();
-  const events: Record<string, unknown>[] = (data.events ?? []).slice(0, 10);
+  const events: Record<string, unknown>[] = (data.events ?? []).slice(0, Math.max(5, days + 2));
 
   return events.map((e, i) => {
     const venue = e.venue as Record<string, unknown> | undefined;
@@ -114,7 +116,7 @@ async function fetchEventbrite(
 
 async function fetchConcertsTavily(
   city: string, startDate: string, endDate: string,
-  tavilyKey: string, llmKey: string
+  tavilyKey: string, llmKey: string, days: number
 ): Promise<Concert[]> {
   const tavilyRes = await fetch("https://api.tavily.com/search", {
     method: "POST",
@@ -122,7 +124,7 @@ async function fetchConcertsTavily(
     body: JSON.stringify({
       api_key: tavilyKey,
       query: `concerts live music events ${city} ${startDate}`,
-      max_results: 8,
+      max_results: Math.max(5, days + 2),
     }),
   });
   if (!tavilyRes.ok) return [];
@@ -142,7 +144,7 @@ async function fetchConcertsTavily(
         content: `Extract music concerts and live events in ${city} around ${startDate} to ${endDate} from these results.
 Return ONLY a valid JSON array:
 [{"id":"tavily-1","name":"Event Name","description":"brief description","date":"YYYY-MM-DD or empty string","venue":"venue name","url":"source url","source":"Tavily"}]
-Keep 6-8 events. Output ONLY the JSON array.
+Keep ${days} to ${days + 2} events. Output ONLY the JSON array.
 
 ${rawText}`,
       }],

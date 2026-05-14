@@ -24,10 +24,19 @@ function parseTripDate(label: string): string {
   const now = new Date();
   const attempt = new Date(`${label} ${now.getFullYear()}`);
   if (!isNaN(attempt.getTime())) {
-    if (attempt < now) attempt.setFullYear(now.getFullYear() + 1);
-    return attempt.toISOString().split("T")[0];
+    const attemptVal = attempt.getMonth() * 100 + attempt.getDate();
+    const nowVal = now.getMonth() * 100 + now.getDate();
+    if (attemptVal < nowVal) attempt.setFullYear(now.getFullYear() + 1);
+    
+    const yyyy = attempt.getFullYear();
+    const mm = String(attempt.getMonth() + 1).padStart(2, '0');
+    const dd = String(attempt.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   }
-  return now.toISOString().split("T")[0];
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 async function callAgent(
@@ -42,22 +51,22 @@ async function callAgent(
   try {
     let res: Response;
     if (interest === "restaurants") {
-      res = await fetch(`/api/restaurants?city=${city}&budget=${budget}`);
+      res = await fetch(`/api/restaurants?city=${city}&budget=${budget}&days=${answers.dates.days}`);
       const d = await res.json();
       return d.restaurants ?? [];
     }
     if (interest === "treks") {
-      res = await fetch(`/api/treks?city=${city}`);
+      res = await fetch(`/api/treks?city=${city}&days=${answers.dates.days}`);
       const d = await res.json();
       return d.treks ?? [];
     }
     if (interest === "music") {
-      res = await fetch(`/api/concerts?city=${city}&startDate=${startDate}&endDate=${endDate}`);
+      res = await fetch(`/api/concerts?city=${city}&startDate=${startDate}&endDate=${endDate}&days=${answers.dates.days}`);
       const d = await res.json();
       return d.concerts ?? [];
     }
     // Generic agent for all other categories
-    res = await fetch(`/api/attractions?city=${city}&category=${interest}&budget=${budget}`);
+    res = await fetch(`/api/attractions?city=${city}&category=${interest}&budget=${budget}&days=${answers.dates.days}`);
     const d = await res.json();
     return d.attractions ?? [];
   } catch {

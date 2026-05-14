@@ -8,6 +8,36 @@ function getMonthName(dateStr: string): string {
   return d.toLocaleString("en-US", { month: "long" });
 }
 
+function parseLocal(dStr: string): Date {
+  const match = dStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10));
+  }
+  
+  if (!/\d{4}/.test(dStr)) {
+    const now = new Date();
+    const attempt = new Date(`${dStr} ${now.getFullYear()}`);
+    if (!isNaN(attempt.getTime())) {
+      const attemptVal = attempt.getMonth() * 100 + attempt.getDate();
+      const nowVal = now.getMonth() * 100 + now.getDate();
+      if (attemptVal < nowVal) {
+        attempt.setFullYear(now.getFullYear() + 1);
+      }
+      return attempt;
+    }
+  }
+
+  const d = new Date(dStr);
+  return isNaN(d.getTime()) ? new Date() : d;
+}
+
+function getTrueDate(startDate: string, dayIndex: number): string {
+  const d = parseLocal(startDate);
+  const offset = isNaN(dayIndex) ? 0 : dayIndex;
+  d.setDate(d.getDate() + offset);
+  return d.toLocaleDateString("en-US", { weekday: "short", year: "numeric", month: "short", day: "numeric" });
+}
+
 function buildAgeContext(ages: string | undefined, composition: string): string {
   const agesNote = ages ? ` (ages: ${ages})` : "";
 
@@ -103,10 +133,13 @@ function buildSchedulePrompt(params: {
     ? `\nHIGHEST PRIORITY — apply this before all other rules:\n"${params.userRequest}"\n`
     : "";
 
+  const dateList = Array.from({ length: params.days }).map((_, i) => `Day ${i + 1}: ${getTrueDate(params.startDate, i)}`).join(" | ");
+
   return `You are Breeze.ai — a world-class travel planner. Build a personally crafted, day-by-day calendar itinerary from the attraction pool below.${userSection}
 
 TRIP
-Destination: ${params.city} | ${params.days} days starting ${params.startDate} (${month})
+Destination: ${params.city} | ${params.days} days
+Dates: ${dateList}
 Travelers: ${params.composition}${params.ages ? ` · ages ${params.ages}` : ""}
 Budget: ${params.budget} (budget→free/cheap · comfort→mid-range · luxury→premium)
 Interests: ${params.interests.join(", ")}
@@ -121,17 +154,14 @@ RULES
 1. 3–4 slots per day, ordered morning → afternoon → evening.
 2. Cluster geographically close venues on the same day — minimise transit.
 3. No venue repeated across the trip.
-4. Honour the budget tier in every price field.
-5. Realistic durations: landmark 1.5–2h · walk 1–1.5h · tour/class 2–3h · hike 3–4h · beach 2.5h · spa 1.5h · meal 1–1.5h.
-6. First slot: 09:00–10:30.
-7. Every tip must be concrete and specific (booking tip, best dish, ideal time, local secret).
-8. Day theme: short and evocative, reflecting both geography and group profile.
-9. Descriptions: 1–2 vivid sentences per slot — write as if recommending to a friend.
+4. Realistic durations: landmark 1.5–2h · walk 1–1.5h · tour/class 2–3h · hike 3–4h · beach 2.5h · spa 1.5h · meal 1–1.5h.
+5. First slot: 09:00–10:30.
+6. Day theme: short and evocative, reflecting both geography and group profile.
 
-CRITICAL: You MUST produce exactly ${params.days} day objects in the "days" array — one per day, no more, no less.
+CRITICAL: You MUST produce exactly ${params.days} day objects in the "days" array — one per day, no more, no less. Even if the attraction pool is small, DO NOT reduce the number of days; instead, spread the activities out sparsely (e.g. 1 activity per day). If you cannot fulfill the user's request because the pool is too small, add a friendly "message" field at the root of the JSON explaining that this is all the attractions we found.
 
 Return ONLY valid JSON — no markdown, no explanation:
-{"days":[{"day":1,"date":"Mon May 14","theme":"...","slots":[{"time":"09:30","duration":"2h","title":"...","category":"history","description":"...","address":"...","price":"...","tip":"..."}]}]}
+{"days":[{"day":1,"date":"Thu, May 21, 2026","theme":"...","slots":[{"time":"09:30","duration":"2h","id":"item-id-from-pool","category":"history"}]}], "message": "optional message if pool is exhausted"}
 
 POOL:
 ${JSON.stringify(params.items)}`;
@@ -161,6 +191,26 @@ export async function POST(req: NextRequest) {
     const text: string = llmData.choices?.[0]?.message?.content ?? "{}";
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     const result = jsonMatch ? JSON.parse(jsonMatch[0]) : { days: [] };
+
+    if (result.days && Array.isArray(result.days)) {
+      for (const day of result.days) {
+        if (day.slots && Array.isArray(day.slots)) {
+          for (const slot of day.slots) {
+            const item: any = items.find((i: any) => i.id === slot.id);
+            if (item) {
+              slot.title = item.name || "Unknown";
+              slot.description = item.description || "";
+              slot.address = item.address || "";
+              slot.price = item.priceRange || "Varies";
+              slot.tip = item.tip || "";
+              slot.url = item.url || "";
+            } else if (!slot.title) {
+              slot.title = "Unknown Activity";
+            }
+          }
+        }
+      }
+    }
 
     return NextResponse.json(result);
   } catch (err) {

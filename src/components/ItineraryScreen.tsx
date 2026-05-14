@@ -5,10 +5,39 @@ import { IconBtn, Icon, Wordmark } from "./ui";
 import type { TripAnswers, GeneratedItinerary, ItineraryDay, ItinerarySlot } from "./types";
 
 
+function parseLocal(dStr: string): Date {
+  const match = dStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10));
+  }
+  
+  if (!/\d{4}/.test(dStr)) {
+    const now = new Date();
+    const attempt = new Date(`${dStr} ${now.getFullYear()}`);
+    if (!isNaN(attempt.getTime())) {
+      const attemptVal = attempt.getMonth() * 100 + attempt.getDate();
+      const nowVal = now.getMonth() * 100 + now.getDate();
+      if (attemptVal < nowVal) {
+        attempt.setFullYear(now.getFullYear() + 1);
+      }
+      return attempt;
+    }
+  }
+
+  const d = new Date(dStr);
+  return isNaN(d.getTime()) ? new Date() : d;
+}
+
 function fmtDisplay(d: string): string {
-  const parsed = new Date(d);
-  if (isNaN(parsed.getTime())) return d;
-  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const parsed = parseLocal(d);
+  return parsed.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function getTrueDate(startDate: string, dayIndex: number): string {
+  const d = parseLocal(startDate);
+  const offset = isNaN(dayIndex) ? 0 : dayIndex;
+  d.setDate(d.getDate() + offset);
+  return d.toLocaleDateString("en-US", { weekday: "short", year: "numeric", month: "short", day: "numeric" });
 }
 
 // ---------- Category config -------------------------------------------
@@ -137,14 +166,15 @@ function SlotCard({ slot, isLast }: { slot: ItinerarySlot; isLast: boolean }) {
 }
 
 // ---------- Day view --------------------------------------------------
-function DayView({ day }: { day: ItineraryDay }) {
+function DayView({ day, startDate }: { day: ItineraryDay; startDate: string }) {
+  const trueDate = getTrueDate(startDate, (day.day || 1) - 1);
   return (
     <div>
       <div style={{ marginBottom: 28 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".2em", textTransform: "uppercase", marginBottom: 4 }}>
           Day {day.day}
         </div>
-        <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-.02em" }}>{day.date}</div>
+        <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-.02em" }}>{trueDate}</div>
         {day.theme && (
           <div style={{ fontSize: 14, color: "var(--text-3)", marginTop: 4, fontStyle: "italic" }}>{day.theme}</div>
         )}
@@ -160,7 +190,7 @@ function DayView({ day }: { day: ItineraryDay }) {
 }
 
 // ---------- Day tabs --------------------------------------------------
-function DayTabs({ days, activeDay, onSelect }: { days: ItineraryDay[]; activeDay: number; onSelect: (d: number) => void }) {
+function DayTabs({ days, activeDay, onSelect, startDate }: { days: ItineraryDay[]; activeDay: number; onSelect: (d: number) => void; startDate: string }) {
   return (
     <div style={{
       display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4,
@@ -169,6 +199,7 @@ function DayTabs({ days, activeDay, onSelect }: { days: ItineraryDay[]; activeDa
     }}>
       {days.map((day) => {
         const active = day.day === activeDay;
+        const trueDate = getTrueDate(startDate, (day.day || 1) - 1);
         return (
           <button
             key={day.day}
@@ -185,7 +216,7 @@ function DayTabs({ days, activeDay, onSelect }: { days: ItineraryDay[]; activeDa
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", opacity: active ? 0.7 : 0.6 }}>
               Day {day.day}
             </div>
-            <div style={{ fontSize: 13, fontWeight: 600, marginTop: 3 }}>{day.date}</div>
+            <div style={{ fontSize: 13, fontWeight: 600, marginTop: 3 }}>{trueDate}</div>
           </button>
         );
       })}
@@ -306,7 +337,7 @@ function TripSidebar({ answers, days, activeDay, onSelectDay }: {
                 }}
               >
                 <span style={{ fontSize: 10, fontWeight: 700, opacity: 0.6, width: 32, flexShrink: 0 }}>Day {day.day}</span>
-                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12 }}>{day.date}</span>
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12 }}>{getTrueDate(answers.dates.start, (day.day || 1) - 1)}</span>
               </button>
             ))}
           </div>
@@ -452,14 +483,20 @@ export default function ItineraryScreen({ answers, generatedItinerary, onRestart
 
         <main style={{ padding: "36px 48px 120px", minWidth: 0 }}>
           <div style={{ opacity: revising ? 0.4 : 1, pointerEvents: revising ? "none" : "auto", transition: "opacity .3s var(--ease)" }}>
+            {generatedItinerary.message && (
+              <div style={{ padding: "12px 16px", background: "var(--accent-soft)", color: "var(--accent-deep)", borderRadius: "var(--r)", marginBottom: 20, fontSize: 14, fontWeight: 500, border: "1px solid var(--accent)" }}>
+                <Icon name="info" size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: 8 }} />
+                {generatedItinerary.message}
+              </div>
+            )}
             {days.length === 0 ? (
               <div style={{ paddingTop: 80, textAlign: "center", color: "var(--text-3)", fontSize: 15 }}>
                 No itinerary generated. Try restarting with different preferences.
               </div>
             ) : (
               <>
-                <DayTabs days={days} activeDay={activeDay} onSelect={setActiveDay} />
-                {currentDay && <DayView day={currentDay} />}
+                <DayTabs days={days} activeDay={activeDay} onSelect={setActiveDay} startDate={answers.dates.start} />
+                {currentDay && <DayView day={currentDay} startDate={answers.dates.start} />}
               </>
             )}
           </div>

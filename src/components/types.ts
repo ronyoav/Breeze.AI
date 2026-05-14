@@ -40,6 +40,7 @@ export type ItineraryData = Record<string, AttractionItem[]>;
 
 // Calendar-based itinerary output from the scheduler
 export interface ItinerarySlot {
+  id?: string;
   time: string;
   duration: string;
   title: string;
@@ -62,4 +63,5 @@ export interface ItineraryDay {
 export interface GeneratedItinerary {
   days: ItineraryDay[];
   pool?: unknown[]; // opaque attraction pool passed back to /api/revise
+  message?: string;
 }
