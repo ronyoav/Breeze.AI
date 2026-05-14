@@ -2,6 +2,9 @@
 .next/
 out/
 
+#cache
+__pycache__/
+
 # Dependencies
 node_modules/
 
