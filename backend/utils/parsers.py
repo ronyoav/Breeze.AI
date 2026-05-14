@@ -10,10 +10,19 @@ class Attraction:
     category: str
     description: str
     address: str = ""
+    coordinates: Optional[dict] = None
+    imageurl: Optional[str] = None
+    ageRange: Optional[str] = None
+    reviews: Optional[float] = None
+    prices: Optional[int] = None
+    notes: Optional[str] = None
+    specialNotes: Optional[str] = None
+    subAgentScore: Optional[float] = None
+    scoresLog: Optional[list[float]] = None
+    
+    # Legacy fields (kept for backward compatibility with older agents)
     rating: Optional[float] = None
     price_level: Optional[int] = None
-    image_url: Optional[str] = None
-    coordinates: Optional[dict] = None
     opening_hours: Optional[str] = None
     url: Optional[str] = None
     tip: Optional[str] = None
