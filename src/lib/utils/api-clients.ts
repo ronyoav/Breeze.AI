@@ -36,7 +36,7 @@ export const openWeather = {
 
 export const tavily = {
   baseUrl: "https://api.tavily.com",
-  key: () => env("TAVILY_API_KEY"),
+  key: () => env("API_KEY_TAVILY"),
 };
 
 export async function tavilySearch(query: string, maxResults = 5) {

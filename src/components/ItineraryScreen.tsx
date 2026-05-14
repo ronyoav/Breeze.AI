@@ -5,6 +5,7 @@ import { IconBtn, Icon, Wordmark } from "./ui";
 import { CityMap } from "./ui/svgs";
 import type { TripAnswers, ItineraryDay, ActivitySlot, DayBlock } from "./types";
 import type { Concert } from "@/app/api/concerts/route";
+import type { Trek } from "@/app/api/treks/route";
 
 // ---------- Static itinerary data -----------------------------------
 const ITINERARY: ItineraryDay[] = [
@@ -838,6 +839,197 @@ function FeedbackOverlay({ onClose, day }: { onClose: () => void; day: Itinerary
   );
 }
 
+// ---------- TreksPanel ----------------------------------------------
+function TrekCard({ t }: { t: Trek }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <a
+      href={t.url || "#"}
+      target="_blank"
+      rel="noopener noreferrer"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        padding: "20px 22px",
+        background: "var(--bg-2)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--r-l)",
+        textDecoration: "none",
+        color: "inherit",
+        transition: "all .3s var(--ease)",
+        transform: hover ? "translateY(-3px)" : "none",
+        boxShadow: hover ? "0 14px 28px rgba(10,27,46,.08)" : "none",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: "var(--r-s)",
+            background: "var(--accent-soft)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <Icon name="map" size={16} stroke="var(--accent-deep)" />
+        </div>
+        <div
+          style={{
+            fontSize: 15,
+            fontWeight: 600,
+            letterSpacing: "-.01em",
+            flex: 1,
+            minWidth: 0,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {t.name}
+        </div>
+        <Icon
+          name="chevron-right"
+          size={14}
+          stroke="var(--text-3)"
+        />
+      </div>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 13,
+          lineHeight: 1.55,
+          color: "var(--text-2)",
+        }}
+      >
+        {t.description}
+      </p>
+      {(t.address || t.tip) && (
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+          {t.address && (
+            <span
+              style={{
+                fontSize: 12,
+                color: "var(--text-3)",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <Icon name="pin" size={11} stroke="var(--text-3)" />
+              {t.address}
+            </span>
+          )}
+          {t.tip && (
+            <span
+              style={{
+                fontSize: 12,
+                color: "var(--accent-deep)",
+                background: "var(--accent-soft)",
+                padding: "2px 8px",
+                borderRadius: 999,
+                border: "1px solid var(--accent)",
+              }}
+            >
+              {t.tip}
+            </span>
+          )}
+        </div>
+      )}
+    </a>
+  );
+}
+
+function TreksPanel({ city }: { city: string }) {
+  const [treks, setTreks] = useState<Trek[] | null>(null);
+  const [status, setStatus] = useState<"loading" | "found" | "empty" | "error">("loading");
+
+  useEffect(() => {
+    if (!city) return;
+    fetch(`/api/treks?city=${encodeURIComponent(city)}`)
+      .then(async (res) => {
+        const data = await res.json();
+        if (res.status === 404 || !data.treks?.length) {
+          setStatus("empty");
+        } else {
+          setTreks(data.treks);
+          setStatus("found");
+        }
+      })
+      .catch(() => setStatus("error"));
+  }, [city]);
+
+  return (
+    <div style={{ marginTop: 56 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: "var(--accent-deep)",
+            letterSpacing: ".25em",
+            textTransform: "uppercase",
+          }}
+        >
+          Hikes &amp; tours
+        </div>
+        <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+        <span style={{ fontSize: 12, color: "var(--text-3)" }}>via Tavily · AI-curated</span>
+      </div>
+
+      {status === "loading" && (
+        <div style={{ padding: "40px 0", textAlign: "center", color: "var(--text-3)", fontSize: 14 }}>
+          Finding trails and tours…
+        </div>
+      )}
+
+      {status === "found" && treks && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          {treks.map((t) => (
+            <TrekCard key={t.id} t={t} />
+          ))}
+        </div>
+      )}
+
+      {(status === "empty" || status === "error") && (
+        <div
+          style={{
+            padding: "48px 32px",
+            background: "var(--bg-2)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--r-l)",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: "50%",
+              background: "var(--bg-3)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px",
+            }}
+          >
+            <Icon name="map" size={22} stroke="var(--text-3)" />
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 6 }}>No hikes found</div>
+          <div style={{ fontSize: 13, color: "var(--text-3)" }}>
+            No hiking trails or tours found for {city}.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------- Date helper ---------------------------------------------
 function parseTripDate(label: string): string {
   // label is like "Jun 10" — resolve to YYYY-MM-DD using current or next year
@@ -1110,6 +1302,7 @@ export default function ItineraryScreen({ answers, onRestart, dark, onToggle }: 
               <BlockSection key={i} block={b} dayIdx={current.day} />
             ))}
           </div>
+          <TreksPanel city={answers.destination} />
           <ConcertsPanel answers={answers} />
           <FeedbackBar day={current} onOpen={() => setFeedbackOpen(true)} />
         </main>
