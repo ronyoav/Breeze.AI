@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { TopBar, PrimaryBtn, SoftBtn, IconBtn, Icon } from "./ui";
 import { GlobeAnimation } from "./GlobeAnimation";
+import type { Traveler } from "./types";
 
 // ---------- Shared QuestionShell -------------------------------------
 interface QuestionShellProps {
@@ -155,61 +156,95 @@ function QuestionShell({
   );
 }
 
+// ---------- Q0: Name --------------------------------------------------
+interface Q0Props {
+  value: string;
+  onChange: (v: string) => void;
+  onAdvance: () => void;
+  onBack: () => void;
+  stepIdx: number;
+  total: number;
+  dark: boolean;
+  onToggle: () => void;
+}
+
+export function Q_Name({ value, onChange, onAdvance, onBack, stepIdx, total, dark, onToggle }: Q0Props) {
+  const [name, setName] = useState(value || "");
+
+  const submit = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onChange(trimmed);
+    onAdvance();
+  };
+
+  return (
+    <QuestionShell
+      stepIdx={stepIdx}
+      total={total}
+      kicker="Question 01"
+      title={<>What&apos;s your <span className="serif">name?</span></>}
+      nextDisabled={!name.trim()}
+      onNext={submit}
+      onBack={onBack}
+      dark={dark}
+      onToggle={onToggle}
+    >
+      <div style={{ maxWidth: 480 }}>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) submit(); }}
+          placeholder="e.g. Alex"
+          autoFocus
+          style={{
+            width: "100%", padding: "18px 24px", fontSize: 28, fontWeight: 500,
+            letterSpacing: "-.02em", background: "var(--bg-2)",
+            border: "1px solid var(--border)", borderRadius: "var(--r-l)",
+            outline: "none", color: "var(--text)", fontFamily: "inherit",
+            boxSizing: "border-box",
+          }}
+        />
+        <p style={{ margin: "12px 0 0", fontSize: 13, color: "var(--text-3)" }}>
+          We&apos;ll use your name to personalise your itinerary
+        </p>
+      </div>
+    </QuestionShell>
+  );
+}
+
 // ---------- Q1: Destination -------------------------------------------
-const DESTINATION_TREE: Record<string, Record<string, string[]>> = {
-  "Europe": {
-    "Italy": ["Rome", "Milan", "Venice", "Florence", "Naples", "Amalfi Coast"],
-    "France": ["Paris", "Lyon", "Nice", "Marseille", "Bordeaux"],
-    "Spain": ["Barcelona", "Madrid", "Seville", "Valencia", "Ibiza"],
-    "UK": ["London", "Edinburgh", "Manchester", "Bath"],
-    "Germany": ["Berlin", "Munich", "Frankfurt", "Hamburg"],
-    "Portugal": ["Lisbon", "Porto", "Faro", "Sintra"],
-    "Greece": ["Athens", "Santorini", "Mykonos", "Crete"],
-    "Netherlands": ["Amsterdam", "Rotterdam", "Utrecht"],
-    "Switzerland": ["Zurich", "Geneva", "Lucerne"],
-    "Croatia": ["Dubrovnik", "Split", "Zagreb"],
-    "Turkey": ["Istanbul", "Cappadocia", "Antalya"],
-    "Iceland": ["Reykjavik"],
-    "Poland": ["Warsaw", "Krakow"]
-  },
-  "Asia": {
-    "Japan": ["Tokyo", "Kyoto", "Osaka", "Hokkaido", "Okinawa"],
-    "Thailand": ["Bangkok", "Chiang Mai", "Phuket", "Koh Samui"],
-    "Vietnam": ["Hanoi", "Ho Chi Minh City", "Da Nang"],
-    "India": ["New Delhi", "Mumbai", "Jaipur", "Goa"],
-    "Indonesia": ["Bali", "Jakarta"],
-    "South Korea": ["Seoul", "Busan", "Jeju"],
-    "Malaysia": ["Kuala Lumpur", "Penang"],
-    "Singapore": ["Singapore"],
-    "Philippines": ["Manila", "Boracay", "Palawan"],
-    "Taiwan": ["Taipei"]
-  },
-  "North America": {
-    "USA": ["New York", "Los Angeles", "Chicago", "Miami", "Las Vegas", "San Francisco"],
-    "Canada": ["Toronto", "Vancouver", "Montreal", "Banff"],
-    "Mexico": ["Mexico City", "Cancun", "Tulum", "Oaxaca"]
-  },
-  "South America": {
-    "Brazil": ["Rio de Janeiro", "São Paulo"],
-    "Argentina": ["Buenos Aires", "Mendoza", "Patagonia"],
-    "Peru": ["Lima", "Cusco", "Machu Picchu"],
-    "Colombia": ["Bogota", "Medellin", "Cartagena"],
-    "Chile": ["Santiago", "Patagonia"]
-  },
-  "Africa": {
-    "South Africa": ["Cape Town", "Johannesburg"],
-    "Morocco": ["Marrakech", "Casablanca", "Fes"],
-    "Egypt": ["Cairo", "Luxor", "Giza"],
-    "Kenya": ["Nairobi", "Mombasa"],
-    "Tanzania": ["Zanzibar", "Serengeti"],
-    "Mauritius": ["Port Louis"]
-  },
-  "Oceania": {
-    "Australia": ["Sydney", "Melbourne", "Brisbane", "Gold Coast"],
-    "New Zealand": ["Auckland", "Queenstown", "Wellington"],
-    "Fiji": ["Nadi", "Suva"]
-  }
-};
+const KNOWN_CITIES = [
+  "Rome","Milan","Venice","Florence","Naples","Amalfi Coast","Paris","Lyon","Nice","Marseille",
+  "Bordeaux","Barcelona","Madrid","Seville","Valencia","Ibiza","London","Edinburgh","Manchester",
+  "Bath","Berlin","Munich","Frankfurt","Hamburg","Lisbon","Porto","Faro","Sintra","Athens",
+  "Santorini","Mykonos","Crete","Amsterdam","Rotterdam","Utrecht","Zurich","Geneva","Lucerne",
+  "Dubrovnik","Split","Zagreb","Istanbul","Cappadocia","Antalya","Reykjavik","Warsaw","Krakow",
+  "Tokyo","Kyoto","Osaka","Hokkaido","Okinawa","Bangkok","Chiang Mai","Phuket","Koh Samui",
+  "Hanoi","Ho Chi Minh City","Da Nang","New Delhi","Mumbai","Jaipur","Goa","Bali","Jakarta",
+  "Seoul","Busan","Jeju","Kuala Lumpur","Penang","Manila","Boracay","Palawan","Taipei",
+  "New York","Los Angeles","Chicago","Miami","Las Vegas","San Francisco","Toronto","Vancouver",
+  "Montreal","Banff","Mexico City","Cancun","Tulum","Oaxaca","Rio de Janeiro","São Paulo",
+  "Buenos Aires","Mendoza","Lima","Cusco","Machu Picchu","Bogota","Medellin","Cartagena",
+  "Santiago","Cape Town","Johannesburg","Marrakech","Casablanca","Fes","Cairo","Luxor","Giza",
+  "Nairobi","Mombasa","Zanzibar","Sydney","Melbourne","Brisbane","Gold Coast","Auckland",
+  "Queenstown","Wellington","Tel Aviv","Jerusalem","Dubai","Abu Dhabi","Doha","Riyadh",
+  "Muscat","Beirut","Amman","Petra","Tbilisi","Baku","Yerevan","Prague","Vienna","Budapest",
+  "Bratislava","Krakow","Gdansk","Tallinn","Riga","Vilnius","Helsinki","Stockholm","Oslo",
+  "Copenhagen","Brussels","Bruges","Luxembourg","Valletta","Nicosia","Thessaloniki","Heraklion",
+  "Palermo","Naples","Bologna","Turin","Genoa","Verona","Pisa","Sorrento","Positano",
+  "Cannes","Strasbourg","Toulouse","Nantes","Rennes","Bilbao","Malaga","Granada","Cordoba",
+  "Palma","Tenerife","Las Palmas","Porto","Braga","Lagos","Algarve","Funchal","Accra",
+  "Lagos","Dakar","Abidjan","Addis Ababa","Dar es Salaam","Kampala","Kigali","Windhoek",
+  "Casablanca","Tunis","Algiers","Tripoli","Khartoum","Colombo","Kathmandu","Dhaka",
+  "Karachi","Lahore","Islamabad","Tashkent","Almaty","Astana","Ulaanbaatar","Phnom Penh",
+  "Vientiane","Yangon","Naypyidaw","Colombo","Male","Thimphu","Dili","Port Moresby",
+  "Suva","Apia","Nuku'alofa","Honiara","Lima","Bogota","Quito","La Paz","Montevideo",
+  "Asuncion","Georgetown","Paramaribo","Cayenne","Havana","San Jose","Guatemala City",
+  "Panama City","Managua","Tegucigalpa","San Salvador","Belize City","Nassau","Bridgetown",
+  "Port of Spain","Kingston","Santo Domingo","San Juan","Monterrey","Guadalajara","Puebla",
+];
+
 
 const COORDINATE_MAP: Record<string, [number, number]> = {
   // Continents
@@ -387,7 +422,7 @@ const COORDINATE_MAP: Record<string, [number, number]> = {
 
 interface Q1Props {
   value: string;
-  onChange: (v: string) => void;
+  onChange: (city: string, country: string) => void;
   onAdvance: () => void;
   onBack: () => void;
   stepIdx: number;
@@ -397,131 +432,117 @@ interface Q1Props {
 }
 
 export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total, dark, onToggle }: Q1Props) {
-  const [selections, setSelections] = useState<string[]>(() => {
-    if (!value) return [];
-    
-    const cities = value.split(",").map(s => s.trim()).filter(Boolean);
-    if (cities.length === 0) return [];
+  const [confirmed, setConfirmed] = useState(value || "");
+  const [country, setCountry] = useState("");
+  const [inputVal, setInputVal] = useState(value || "");
+  const [suggestions, setSuggestions] = useState<{ name: string; subtitle?: string }[]>([]);
+  const [focused, setFocused] = useState(false);
 
-    const firstCity = cities[0];
-    for (const continent of Object.keys(DESTINATION_TREE)) {
-      if (continent === firstCity) return [continent];
-      for (const country of Object.keys(DESTINATION_TREE[continent])) {
-        if (country === firstCity) return [continent, country];
-        if (DESTINATION_TREE[continent][country].includes(firstCity)) {
-          return [continent, country, ...cities];
-        }
-      }
-    }
-    return [...cities];
-  });
+  const toTitleCase = (s: string) =>
+    s.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
 
-  const [customText, setCustomText] = useState("");
+  // Autocomplete: instant local matches + debounced Nominatim
+  useEffect(() => {
+    if (confirmed || inputVal.length < 2) { setSuggestions([]); return; }
+    const lower = inputVal.toLowerCase();
+    const local = KNOWN_CITIES
+      .filter(c => c.toLowerCase().startsWith(lower))
+      .slice(0, 5)
+      .map(name => ({ name }));
+    setSuggestions(local);
 
-  const toTitleCase = (str: string) =>
-    str.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(inputVal)}&format=json&limit=6&addressdetails=1`,
+          { headers: { "User-Agent": "Breeze.AI" } }
+        );
+        const data = await res.json();
+        const remote = (data as any[])
+          .map(d => ({
+            name: d.address?.city || d.address?.town || d.address?.village || d.name,
+            subtitle: d.address?.country,
+          }))
+          .filter(d => d.name);
+        setSuggestions(prev => {
+          const merged = [...prev];
+          for (const r of remote) {
+            if (!merged.find(m => m.name.toLowerCase() === r.name.toLowerCase())) merged.push(r);
+          }
+          return merged.slice(0, 6);
+        });
+      } catch { /* keep local results */ }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [inputVal, confirmed]);
 
-  const currentContinent = selections[0];
-  const currentCountry = selections[1];
-  const currentCities = selections.slice(2);
-
-  let options: string[] = [];
-  let placeholder = "";
-
-  if (!currentContinent) {
-    options = Object.keys(DESTINATION_TREE);
-    placeholder = "";
-  } else if (!currentCountry) {
-    options = DESTINATION_TREE[currentContinent] ? Object.keys(DESTINATION_TREE[currentContinent]) : [];
-    placeholder = "Type country...";
-  } else {
-    options = (DESTINATION_TREE[currentContinent] && DESTINATION_TREE[currentContinent][currentCountry]) 
-      ? DESTINATION_TREE[currentContinent][currentCountry] 
-      : [];
-    placeholder = "Type city...";
-  }
-
-  const matches = customText
-    ? options.filter((c) => c.toLowerCase().includes(customText.toLowerCase()))
-    : options;
-
-  const handleSelect = (opt: string) => {
-    if (selections.length >= 2) {
-      if (selections.includes(opt)) {
-        setSelections(selections.filter(s => s !== opt));
-      } else {
-        setSelections([...selections, opt]);
-      }
-    } else {
-      setSelections([...selections, opt]);
-    }
-    setCustomText("");
+  const confirmCity = (name: string, detectedCountry?: string) => {
+    const trimmed = toTitleCase(name.trim());
+    if (!trimmed) return;
+    setConfirmed(trimmed);
+    setInputVal(trimmed);
+    const c = detectedCountry || country;
+    onChange(trimmed, c);
+    setSuggestions([]);
   };
 
-  const handleRemoveLevel = () => {
-    setSelections(selections.slice(0, selections.length - 1));
-  };
-  
-  const handleRemoveCity = (city: string) => {
-    setSelections(selections.filter(s => s !== city));
+  // Fetch country from Nominatim after city is confirmed
+  useEffect(() => {
+    if (!confirmed) { setCountry(""); return; }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(confirmed)}&format=json&limit=1&addressdetails=1`,
+          { headers: { "User-Agent": "Breeze.AI" } }
+        );
+        const data = await res.json();
+        const c: string = data?.[0]?.address?.country ?? "";
+        if (c) { setCountry(c); onChange(confirmed, c); }
+      } catch { /* keep empty */ }
+    }, 400);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmed]);
+
+  const clearCity = () => {
+    setConfirmed("");
+    setCountry("");
+    setInputVal("");
+    onChange("", "");
+    setSuggestions([]);
   };
 
   const submit = () => {
-    const finalCities = [...currentCities];
-    const trimmed = toTitleCase(customText.trim());
-    if (trimmed && !finalCities.includes(trimmed)) {
-      finalCities.push(trimmed);
-    }
-    if (finalCities.length > 0 || (selections.length >= 2 && customText.trim())) {
-      onChange(finalCities.join(", "));
-      onAdvance();
-    }
+    const city = confirmed || toTitleCase(inputVal.trim());
+    if (!city) return;
+    onChange(city, country);
+    onAdvance();
   };
 
-  const isNextDisabled = selections.length < 2 || (currentCities.length === 0 && !customText.trim());
+  const isNextDisabled = !confirmed && !inputVal.trim();
 
-  const currentCityForGlobe = currentCities.length > 0 ? currentCities[currentCities.length - 1] : selections[selections.length - 1];
+  // Globe
   const [liveLocation, setLiveLocation] = useState<[number, number] | undefined>(undefined);
-
   useEffect(() => {
-    if (!currentCityForGlobe) {
-      setLiveLocation(undefined);
-      return;
-    }
-
-    if (COORDINATE_MAP[currentCityForGlobe]) {
-      setLiveLocation(COORDINATE_MAP[currentCityForGlobe]);
-      return;
-    }
-
-    // Live Geocoding for custom destinations
-    const fetchCoords = async () => {
+    const city = confirmed;
+    if (!city) { setLiveLocation(undefined); return; }
+    if (COORDINATE_MAP[city]) { setLiveLocation(COORDINATE_MAP[city]); return; }
+    const t = setTimeout(async () => {
       try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(currentCityForGlobe)}&format=json&limit=1`);
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`);
         const data = await res.json();
-        if (data && data.length > 0) {
-          setLiveLocation([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
-        }
-      } catch (err) {
-        console.error("Geocoding failed", err);
-      }
-    };
-    
-    // Add small delay to prevent rapid requests if user is typing
-    const t = setTimeout(fetchCoords, 500);
+        if (data?.[0]) setLiveLocation([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
+      } catch { /* no globe update */ }
+    }, 500);
     return () => clearTimeout(t);
-  }, [currentCityForGlobe]);
+  }, [confirmed]);
 
   return (
     <QuestionShell
       stepIdx={stepIdx}
       total={total}
       kicker="Question 01"
-      title={
-        <>
-          Where are you <span className="serif">flying to?</span>
-        </>
-      }
+      title={<>Where are you <span className="serif">flying to?</span></>}
       nextDisabled={isNextDisabled}
       onNext={submit}
       onBack={onBack}
@@ -529,127 +550,83 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
       onToggle={onToggle}
       sideElement={<GlobeAnimation location={liveLocation} dark={dark} />}
     >
-      <div style={{ maxWidth: 600 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 12,
-            width: "100%",
-            padding: "16px 26px",
-            minHeight: 82,
-            border: "1px solid var(--border)",
-            background: "var(--bg-2)",
-            borderRadius: "var(--r-l)",
-          }}
-        >
-          {currentCities.length > 0 ? (
-            currentCities.map((city) => (
-              <div
-                key={city}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  background: "var(--accent-soft)",
-                  color: "var(--accent-deep)",
-                  padding: "8px 16px",
-                  borderRadius: 999,
-                  fontSize: 22,
-                  fontWeight: 500,
-                }}
-              >
-                {city}
-                <button
-                  onClick={() => handleRemoveCity(city)}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "var(--accent-deep)",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: 4,
-                    borderRadius: 999,
-                  }}
-                >
-                  <Icon name="x" size={16} />
-                </button>
-              </div>
-            ))
-          ) : selections.length > 0 ? (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                background: "var(--accent-soft)",
-                color: "var(--accent-deep)",
-                padding: "8px 16px",
-                borderRadius: 999,
-                fontSize: 22,
-                fontWeight: 500,
-              }}
-            >
-              {selections[selections.length - 1]}
-              <button
-                onClick={handleRemoveLevel}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "var(--accent-deep)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: 4,
-                  borderRadius: 999,
-                }}
-              >
+      <div style={{ maxWidth: 560 }}>
+        {confirmed ? (
+          /* Confirmed city chip */
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: 10,
+              background: "var(--accent-soft)", color: "var(--accent-deep)",
+              padding: "14px 22px", borderRadius: 999, fontSize: 24, fontWeight: 600,
+            }}>
+              {confirmed}
+              <button onClick={clearCity} style={{
+                background: "transparent", border: "none", color: "var(--accent-deep)",
+                cursor: "pointer", display: "flex", alignItems: "center", padding: 2,
+              }}>
                 <Icon name="x" size={16} />
               </button>
             </div>
-          ) : null}
-          <input
-            value={customText}
-            onChange={(e) => setCustomText(toTitleCase(e.target.value))}
-            placeholder={placeholder}
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                if (customText.trim() && options.includes(customText.trim())) {
-                  handleSelect(customText.trim());
-                } else if (customText.trim()) {
-                  handleSelect(customText.trim());
-                } else if (!isNextDisabled) {
-                  submit();
+          </div>
+        ) : (
+          /* Input with autocomplete dropdown */
+          <div style={{ position: "relative" }}>
+            <input
+              value={inputVal}
+              onChange={e => setInputVal(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (suggestions.length > 0) confirmCity(suggestions[0].name, suggestions[0].subtitle);
+                  else if (inputVal.trim()) confirmCity(inputVal);
                 }
-              }
-            }}
-            style={{
-              flex: 1,
-              minWidth: 200,
-              fontSize: 32,
-              fontWeight: 500,
-              fontVariationSettings: '"opsz" 48',
-              background: "transparent",
-              border: "none",
-              outline: "none",
-              color: "var(--text)",
-              letterSpacing: "-.02em",
-            }}
-          />
-        </div>
-        
-        <div style={{ marginTop: 22, display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {matches.slice(0, 12).map((c) => (
-            <SoftBtn key={c} active={currentCities.includes(c)} onClick={() => handleSelect(c)}>
-              {c}
-            </SoftBtn>
-          ))}
-        </div>
+              }}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setTimeout(() => setFocused(false), 200)}
+              placeholder="Type a city, e.g. Tel Aviv"
+              autoFocus
+              style={{
+                width: "100%", padding: "18px 24px", fontSize: 28, fontWeight: 500,
+                letterSpacing: "-.02em", background: "var(--bg-2)",
+                border: "1px solid var(--border)", borderRadius: "var(--r-l)",
+                outline: "none", color: "var(--text)", fontFamily: "inherit",
+                boxSizing: "border-box",
+              }}
+            />
+
+            {focused && suggestions.length > 0 && (
+              <div style={{
+                position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0,
+                background: "var(--bg-2)", border: "1px solid var(--border)",
+                borderRadius: "var(--r-l)", overflow: "hidden", zIndex: 20,
+                boxShadow: "0 8px 24px rgba(0,0,0,.08)",
+              }}>
+                {suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    onMouseDown={() => confirmCity(s.name, s.subtitle)}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      width: "100%", padding: "13px 20px", textAlign: "left",
+                      background: "transparent", border: "none",
+                      borderBottom: i < suggestions.length - 1 ? "1px solid var(--border)" : "none",
+                      cursor: "pointer", fontFamily: "inherit",
+                    }}
+                  >
+                    <span style={{ fontSize: 17, fontWeight: 500, color: "var(--text)" }}>{s.name}</span>
+                    {s.subtitle && <span style={{ fontSize: 12, color: "var(--text-3)" }}>{s.subtitle}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <p style={{ margin: "12px 0 0", fontSize: 13, color: "var(--text-3)" }}>
+          {confirmed
+            ? "City selected · press Continue or Enter to proceed"
+            : "Select a suggestion or press Enter to confirm"}
+        </p>
       </div>
     </QuestionShell>
   );
@@ -779,9 +756,16 @@ function CompositionGlyph({ n, active }: { n: number; active: boolean }) {
   );
 }
 
+const COMP_DEFAULTS: Record<string, number> = { solo: 1, couple: 2, family: 4, friends: 3 };
+const GENDERS = ["Male", "Female", "Other"];
+
+function makeDefaultTravelers(comp: string): Traveler[] {
+  return Array.from({ length: COMP_DEFAULTS[comp] ?? 1 }, () => ({ age: "", gender: "" }));
+}
+
 interface Q3Props {
-  value: { comp: string | null; ages: string };
-  onChange: (v: { comp: string | null; ages: string }) => void;
+  value: { comp: string | null; travelers: Traveler[] };
+  onChange: (v: { comp: string | null; travelers: Traveler[] }) => void;
   onAdvance: () => void;
   onBack: () => void;
   stepIdx: number;
@@ -792,7 +776,22 @@ interface Q3Props {
 
 export function Q_Composition({ value, onChange, onAdvance, onBack, stepIdx, total, dark, onToggle }: Q3Props) {
   const [sel, setSel] = useState<string | null>(value.comp);
-  const [ages, setAges] = useState(value.ages);
+  const [travelers, setTravelers] = useState<Traveler[]>(() =>
+    value.travelers.length > 0 ? value.travelers : value.comp ? makeDefaultTravelers(value.comp) : []
+  );
+
+  const selectComp = (id: string) => {
+    setSel(id);
+    setTravelers(makeDefaultTravelers(id));
+  };
+
+  const updateTraveler = (i: number, field: keyof Traveler, val: string) =>
+    setTravelers((prev) => prev.map((t, idx) => (idx === i ? { ...t, [field]: val } : t)));
+
+  const addTraveler = () => setTravelers((prev) => [...prev, { age: "", gender: "" }]);
+  const removeTraveler = (i: number) => setTravelers((prev) => prev.filter((_, idx) => idx !== i));
+
+  const isNextDisabled = !sel || travelers.length === 0 || travelers.some((t) => !t.age.trim() || !t.gender);
 
   return (
     <QuestionShell
@@ -804,10 +803,10 @@ export function Q_Composition({ value, onChange, onAdvance, onBack, stepIdx, tot
           Who are you <span className="serif">traveling with?</span>
         </>
       }
-      nextDisabled={!sel}
+      nextDisabled={isNextDisabled}
       onNext={() => {
-        if (sel) {
-          onChange({ comp: sel, ages });
+        if (!isNextDisabled) {
+          onChange({ comp: sel!, travelers });
           onAdvance();
         }
       }}
@@ -815,13 +814,14 @@ export function Q_Composition({ value, onChange, onAdvance, onBack, stepIdx, tot
       dark={dark}
       onToggle={onToggle}
     >
+      {/* Composition type selector */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, maxWidth: 880 }}>
         {COMP_OPTIONS.map((o) => {
           const active = sel === o.id;
           return (
             <button
               key={o.id}
-              onClick={() => setSel(o.id)}
+              onClick={() => selectComp(o.id)}
               style={{
                 textAlign: "left",
                 padding: "28px 24px 22px",
@@ -836,14 +836,7 @@ export function Q_Composition({ value, onChange, onAdvance, onBack, stepIdx, tot
                 fontFamily: "inherit",
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: 30,
-                }}
-              >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 30 }}>
                 <CompositionGlyph n={o.n} active={active} />
                 {active && <Icon name="check" size={18} stroke="var(--accent-deep)" />}
               </div>
@@ -853,16 +846,117 @@ export function Q_Composition({ value, onChange, onAdvance, onBack, stepIdx, tot
           );
         })}
       </div>
+
+      {/* Traveler cards */}
       {sel && (
-        <div style={{ marginTop: 32, maxWidth: 880 }}>
-          <label style={{ display: "block", color: "var(--text-3)", fontSize: 13, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 10 }}>Ages of travelers (optional)</label>
-          <input
-            type="text"
-            value={ages}
-            onChange={(e) => setAges(e.target.value)}
-            placeholder="e.g. 30, 32, 5, 8"
-            style={{ width: "100%", padding: "16px 20px", fontSize: 24, borderRadius: "var(--r)", border: "1px solid var(--border)", background: "var(--bg-2)", color: "var(--text)", outline: "none", fontFamily: "inherit" }}
-          />
+        <div style={{ marginTop: 36, maxWidth: 880 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 14 }}>
+            {travelers.map((t, i) => (
+              <div
+                key={i}
+                style={{
+                  padding: "20px 18px",
+                  background: "var(--bg-2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--r-l)",
+                }}
+              >
+                {/* Card header */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent-deep)", letterSpacing: ".08em", textTransform: "uppercase" }}>
+                    Traveler {i + 1}
+                  </span>
+                  {travelers.length > 1 && (
+                    <button
+                      onClick={() => removeTraveler(i)}
+                      style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--text-3)", padding: 2, display: "flex", alignItems: "center" }}
+                    >
+                      <Icon name="x" size={14} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Age */}
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--text-3)", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 6 }}>Age</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={t.age}
+                  onChange={(e) => updateTraveler(i, "age", e.target.value)}
+                  placeholder="e.g. 32"
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    fontSize: 18,
+                    fontWeight: 500,
+                    borderRadius: "var(--r)",
+                    border: "1px solid var(--border)",
+                    background: "var(--bg)",
+                    color: "var(--text)",
+                    outline: "none",
+                    fontFamily: "inherit",
+                    boxSizing: "border-box",
+                  }}
+                />
+
+                {/* Gender */}
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--text-3)", letterSpacing: ".08em", textTransform: "uppercase", margin: "14px 0 6px" }}>Gender</label>
+                <div style={{ display: "flex", gap: 5 }}>
+                  {GENDERS.map((g) => {
+                    const gVal = g.toLowerCase();
+                    const active = t.gender === gVal;
+                    return (
+                      <button
+                        key={g}
+                        onClick={() => updateTraveler(i, "gender", gVal)}
+                        style={{
+                          flex: 1,
+                          padding: "7px 0",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          background: active ? "var(--accent-soft)" : "transparent",
+                          border: "1px solid",
+                          borderColor: active ? "var(--accent)" : "var(--border)",
+                          borderRadius: "var(--r)",
+                          color: active ? "var(--accent-deep)" : "var(--text-2)",
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          transition: "all .2s var(--ease)",
+                        }}
+                      >
+                        {g}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Add traveler button */}
+          <button
+            onClick={addTraveler}
+            style={{
+              marginTop: 14,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "12px 20px",
+              background: "transparent",
+              border: "1px dashed var(--border)",
+              borderRadius: "var(--r-l)",
+              color: "var(--text-2)",
+              fontSize: 14,
+              fontWeight: 500,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              transition: "all .2s var(--ease)",
+            }}
+          >
+            <Icon name="plus" size={16} />
+            Add traveler
+          </button>
         </div>
       )}
     </QuestionShell>
