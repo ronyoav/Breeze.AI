@@ -31,6 +31,7 @@ function buildInputData(answers: TripAnswers): Record<string, unknown> {
     },
     accessibility: false,
     interests: answers.interests,
+    session_id: crypto.randomUUID(),
   };
 }
 
@@ -70,14 +71,17 @@ export default function GeneratingScreen({ answers, onDone, dark, onToggle }: Pr
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ input_data }),
     })
-      .then((r) => r.json())
-      .then((data: GeneratedItinerary) => {
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok || !Array.isArray(data.days) || data.days.length === 0) {
+          setStatus("error");
+          return;
+        }
         setStatus("done");
         onDone(data);
       })
       .catch(() => {
         setStatus("error");
-        onDone({ days: [] });
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

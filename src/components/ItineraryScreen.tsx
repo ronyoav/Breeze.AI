@@ -4,8 +4,6 @@ import { useState } from "react";
 import { IconBtn, Icon, Wordmark } from "./ui";
 import type { TripAnswers, GeneratedItinerary, OrchestratorDay, OrchestratorActivity } from "./types";
 
-const FALLBACK_IMAGE = "/fallback.jpg";
-
 const BUDGET_MAP: Record<string, number> = { budget: 1, comfort: 2, luxury: 3 };
 
 function buildInputData(answers: TripAnswers): Record<string, unknown> {
@@ -62,11 +60,42 @@ function getCategoryMeta(category: string) {
 }
 
 // ---------- Activity card ----------------------------------------------
+function ActivityImageHero({ imageurl, title, meta }: { imageurl?: string | null; title: string; meta: { icon: string; color: string; label: string } }) {
+  const [imgError, setImgError] = useState(false);
+  const showImage = !!imageurl && !imgError;
+
+  return (
+    <div style={{ height: 180, overflow: "hidden", position: "relative", background: showImage ? undefined : `linear-gradient(135deg, ${meta.color}22 0%, ${meta.color}44 100%)` }}>
+      {showImage && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imageurl!}
+          alt={title}
+          loading="lazy"
+          onError={() => setImgError(true)}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        />
+      )}
+      {!showImage && (
+        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Icon name={meta.icon} size={48} stroke={`${meta.color}88`} />
+        </div>
+      )}
+      <span style={{
+        position: "absolute", top: 10, left: 10,
+        fontSize: 10, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase",
+        padding: "3px 10px", borderRadius: 999,
+        background: showImage ? `${meta.color}dd` : `${meta.color}cc`, color: "#fff",
+      }}>
+        {meta.label}
+      </span>
+    </div>
+  );
+}
+
 function ActivityCard({ activity, isLast }: { activity: OrchestratorActivity; isLast: boolean }) {
   const [hover, setHover] = useState(false);
-  const [imgError, setImgError] = useState(false);
   const meta = getCategoryMeta(activity.category);
-  const imgSrc = (!activity.imageurl || imgError) ? FALLBACK_IMAGE : activity.imageurl;
 
   return (
     <div style={{ display: "flex", gap: 0, position: "relative" }}>
@@ -105,24 +134,7 @@ function ActivityCard({ activity, isLast }: { activity: OrchestratorActivity; is
         }}
       >
         {/* Image */}
-        <div style={{ height: 180, overflow: "hidden", position: "relative" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={imgSrc}
-            alt={activity.title}
-            onError={() => setImgError(true)}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-          />
-          {/* Category badge over image */}
-          <span style={{
-            position: "absolute", top: 10, left: 10,
-            fontSize: 10, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase",
-            padding: "3px 10px", borderRadius: 999,
-            background: `${meta.color}dd`, color: "#fff",
-          }}>
-            {meta.label}
-          </span>
-        </div>
+        <ActivityImageHero imageurl={activity.imageurl} title={activity.title} meta={meta} />
 
         <div style={{ padding: "16px 20px" }}>
           {/* Title row */}
