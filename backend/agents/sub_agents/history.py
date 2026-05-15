@@ -2,7 +2,7 @@ import json
 import asyncio
 import httpx
 from langsmith import traceable
-from utils.api_clients import OVERPASS_BASE
+from utils.api_clients import OVERPASS_BASE, tavily_search
 from utils.parsers import Attraction
 from cache.redis import get_cached, set_cached, attraction_cache_key
 from utils.llm import async_client, MODEL_HAIKU, build_subagent_prompt, extract_json_object
@@ -103,9 +103,29 @@ async def fetch_history(user_profile: dict) -> list[Attraction]:
             pass
 
     if final_attractions:
-        await set_cached(key, [a.to_dict() for a in final_attractions])
+        if not valid_attractions:
+        valid_attractions = await _tavily_fallback(city)
+
+    await set_cached(key, [a.to_dict() for a in final_attractions])
         
     return final_attractions
+
+
+async def _tavily_fallback(city: str) -> list[Attraction]:
+    try:
+        result = await tavily_search(f"historical sites monuments museums {city}", 6)
+    except Exception:
+        return []
+    attractions = []
+    for i, r in enumerate(result.get("results", [])):
+        attractions.append(Attraction(
+            id=f"tavily-history-{i}",
+            name=r.get("title", "").split(" - ")[0].strip(),
+            category="history",
+            description=str(r.get("content", r.get("snippet", "")))[:200],
+            url=r.get("url", ""),
+        ))
+    return attractions
 
 
 async def _enrich_from_wiki(el: dict, city: str) -> Attraction:

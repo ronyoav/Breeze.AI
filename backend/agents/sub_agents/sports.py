@@ -1,7 +1,6 @@
 import json
 import httpx
-from utils.api_clients import TICKETMASTER_BASE, ticketmaster_key
-from utils.agent_loop import run_agent_loop
+from utils.api_clients import TICKETMASTER_BASE, ticketmaster_key, tavily_search
 from utils.llm import async_client, MODEL_HAIKU, build_subagent_prompt, extract_json_object
 from utils.parsers import Attraction
 from cache.redis import get_cached, set_cached, attraction_cache_key
@@ -54,28 +53,39 @@ async def fetch_sports(user_profile: dict) -> list[Attraction]:
     else:
         # Fall back to Tavily agent search
         user_message = (
-            f"Search the web to find the best sports activities, stadiums, and live sport events in {city} "
+            f"Find the best sports activities, stadiums, and live sport events in {city} "
             f"for a traveler visiting from {start_date} to {end_date}. "
             f"Highlight anything happening during that specific period."
         )
-        text = await run_agent_loop(system_prompt, user_message)
-        json_match = extract_json_object(text)
+        text = await run_agent_loop(SYSTEM_PROMPT, user_message)
+        start, end = text.find("["), text.rfind("]")
         attractions = []
-        if json_match:
+        if start != -1 and end != -1:
             try:
-                parsed_data = json.loads(json_match)
-                parsed_list = parsed_data.get("results", [])
-                for item in parsed_list:
-                    item["category"] = "sports"
-                    if "id" not in item:
-                        item["id"] = "generated_id"
-                    attractions.append(Attraction(**item))
+                attractions = [Attraction(**a) for a in json.loads(text[start:end + 1])]
             except Exception:
                 pass
 
     if attractions:
         await set_cached(key, [a.to_dict() for a in attractions])
         
+    return attractions
+
+
+async def _tavily_fallback(city: str, start_date: str, end_date: str) -> list[Attraction]:
+    try:
+        result = await tavily_search(f"sports events stadiums activities {city} {start_date}", 6)
+    except Exception:
+        return []
+    attractions = []
+    for i, r in enumerate(result.get("results", [])):
+        attractions.append(Attraction(
+            id=f"tavily-sports-{i}",
+            name=r.get("title", "").split(" - ")[0].strip(),
+            category="sports",
+            description=str(r.get("content", r.get("snippet", "")))[:200],
+            url=r.get("url", ""),
+        ))
     return attractions
 
 
