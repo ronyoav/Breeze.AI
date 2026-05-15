@@ -130,7 +130,7 @@ export default function GeneratingScreen({ answers, onDone, dark, onToggle }: Pr
             composition: answers.composition ?? "friends",
             budget: answers.budget,
             interests: answers.interests,
-            ages: answers.ages,
+            travelers: answers.travelers,
           }),
         });
         const itinerary: GeneratedItinerary = await res.json();

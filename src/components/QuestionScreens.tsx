@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { TopBar, PrimaryBtn, SoftBtn, IconBtn, Icon } from "./ui";
 import { GlobeAnimation } from "./GlobeAnimation";
+import type { Traveler } from "./types";
 
 // ---------- Shared QuestionShell -------------------------------------
 interface QuestionShellProps {
@@ -779,9 +780,16 @@ function CompositionGlyph({ n, active }: { n: number; active: boolean }) {
   );
 }
 
+const COMP_DEFAULTS: Record<string, number> = { solo: 1, couple: 2, family: 4, friends: 3 };
+const GENDERS = ["Male", "Female", "Other"];
+
+function makeDefaultTravelers(comp: string): Traveler[] {
+  return Array.from({ length: COMP_DEFAULTS[comp] ?? 1 }, () => ({ age: "", gender: "" }));
+}
+
 interface Q3Props {
-  value: { comp: string | null; ages: string };
-  onChange: (v: { comp: string | null; ages: string }) => void;
+  value: { comp: string | null; travelers: Traveler[] };
+  onChange: (v: { comp: string | null; travelers: Traveler[] }) => void;
   onAdvance: () => void;
   onBack: () => void;
   stepIdx: number;
@@ -792,7 +800,22 @@ interface Q3Props {
 
 export function Q_Composition({ value, onChange, onAdvance, onBack, stepIdx, total, dark, onToggle }: Q3Props) {
   const [sel, setSel] = useState<string | null>(value.comp);
-  const [ages, setAges] = useState(value.ages);
+  const [travelers, setTravelers] = useState<Traveler[]>(() =>
+    value.travelers.length > 0 ? value.travelers : value.comp ? makeDefaultTravelers(value.comp) : []
+  );
+
+  const selectComp = (id: string) => {
+    setSel(id);
+    setTravelers(makeDefaultTravelers(id));
+  };
+
+  const updateTraveler = (i: number, field: keyof Traveler, val: string) =>
+    setTravelers((prev) => prev.map((t, idx) => (idx === i ? { ...t, [field]: val } : t)));
+
+  const addTraveler = () => setTravelers((prev) => [...prev, { age: "", gender: "" }]);
+  const removeTraveler = (i: number) => setTravelers((prev) => prev.filter((_, idx) => idx !== i));
+
+  const isNextDisabled = !sel || travelers.length === 0 || travelers.some((t) => !t.age.trim() || !t.gender);
 
   return (
     <QuestionShell
@@ -804,10 +827,10 @@ export function Q_Composition({ value, onChange, onAdvance, onBack, stepIdx, tot
           Who are you <span className="serif">traveling with?</span>
         </>
       }
-      nextDisabled={!sel}
+      nextDisabled={isNextDisabled}
       onNext={() => {
-        if (sel) {
-          onChange({ comp: sel, ages });
+        if (!isNextDisabled) {
+          onChange({ comp: sel!, travelers });
           onAdvance();
         }
       }}
@@ -815,13 +838,14 @@ export function Q_Composition({ value, onChange, onAdvance, onBack, stepIdx, tot
       dark={dark}
       onToggle={onToggle}
     >
+      {/* Composition type selector */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, maxWidth: 880 }}>
         {COMP_OPTIONS.map((o) => {
           const active = sel === o.id;
           return (
             <button
               key={o.id}
-              onClick={() => setSel(o.id)}
+              onClick={() => selectComp(o.id)}
               style={{
                 textAlign: "left",
                 padding: "28px 24px 22px",
@@ -836,14 +860,7 @@ export function Q_Composition({ value, onChange, onAdvance, onBack, stepIdx, tot
                 fontFamily: "inherit",
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: 30,
-                }}
-              >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 30 }}>
                 <CompositionGlyph n={o.n} active={active} />
                 {active && <Icon name="check" size={18} stroke="var(--accent-deep)" />}
               </div>
@@ -853,16 +870,117 @@ export function Q_Composition({ value, onChange, onAdvance, onBack, stepIdx, tot
           );
         })}
       </div>
+
+      {/* Traveler cards */}
       {sel && (
-        <div style={{ marginTop: 32, maxWidth: 880 }}>
-          <label style={{ display: "block", color: "var(--text-3)", fontSize: 13, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 10 }}>Ages of travelers (optional)</label>
-          <input
-            type="text"
-            value={ages}
-            onChange={(e) => setAges(e.target.value)}
-            placeholder="e.g. 30, 32, 5, 8"
-            style={{ width: "100%", padding: "16px 20px", fontSize: 24, borderRadius: "var(--r)", border: "1px solid var(--border)", background: "var(--bg-2)", color: "var(--text)", outline: "none", fontFamily: "inherit" }}
-          />
+        <div style={{ marginTop: 36, maxWidth: 880 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 14 }}>
+            {travelers.map((t, i) => (
+              <div
+                key={i}
+                style={{
+                  padding: "20px 18px",
+                  background: "var(--bg-2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--r-l)",
+                }}
+              >
+                {/* Card header */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent-deep)", letterSpacing: ".08em", textTransform: "uppercase" }}>
+                    Traveler {i + 1}
+                  </span>
+                  {travelers.length > 1 && (
+                    <button
+                      onClick={() => removeTraveler(i)}
+                      style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--text-3)", padding: 2, display: "flex", alignItems: "center" }}
+                    >
+                      <Icon name="x" size={14} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Age */}
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--text-3)", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 6 }}>Age</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={t.age}
+                  onChange={(e) => updateTraveler(i, "age", e.target.value)}
+                  placeholder="e.g. 32"
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    fontSize: 18,
+                    fontWeight: 500,
+                    borderRadius: "var(--r)",
+                    border: "1px solid var(--border)",
+                    background: "var(--bg)",
+                    color: "var(--text)",
+                    outline: "none",
+                    fontFamily: "inherit",
+                    boxSizing: "border-box",
+                  }}
+                />
+
+                {/* Gender */}
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--text-3)", letterSpacing: ".08em", textTransform: "uppercase", margin: "14px 0 6px" }}>Gender</label>
+                <div style={{ display: "flex", gap: 5 }}>
+                  {GENDERS.map((g) => {
+                    const gVal = g.toLowerCase();
+                    const active = t.gender === gVal;
+                    return (
+                      <button
+                        key={g}
+                        onClick={() => updateTraveler(i, "gender", gVal)}
+                        style={{
+                          flex: 1,
+                          padding: "7px 0",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          background: active ? "var(--accent-soft)" : "transparent",
+                          border: "1px solid",
+                          borderColor: active ? "var(--accent)" : "var(--border)",
+                          borderRadius: "var(--r)",
+                          color: active ? "var(--accent-deep)" : "var(--text-2)",
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          transition: "all .2s var(--ease)",
+                        }}
+                      >
+                        {g}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Add traveler button */}
+          <button
+            onClick={addTraveler}
+            style={{
+              marginTop: 14,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "12px 20px",
+              background: "transparent",
+              border: "1px dashed var(--border)",
+              borderRadius: "var(--r-l)",
+              color: "var(--text-2)",
+              fontSize: 14,
+              fontWeight: 500,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              transition: "all .2s var(--ease)",
+            }}
+          >
+            <Icon name="plus" size={16} />
+            Add traveler
+          </button>
         </div>
       )}
     </QuestionShell>

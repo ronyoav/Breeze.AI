@@ -1,8 +1,13 @@
+export interface Traveler {
+  age: string;
+  gender: string;
+}
+
 export interface TripAnswers {
   destination: string;
   dates: { start: string; end: string; days: number };
   composition: string | null;
-  ages?: string;
+  travelers: Traveler[];
   budget: string;
   interests: string[];
 }

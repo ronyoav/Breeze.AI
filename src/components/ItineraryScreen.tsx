@@ -308,7 +308,9 @@ function TripSidebar({ answers, days, activeDay, onSelectDay }: {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-2)" }}>
             <Icon name="users" size={13} stroke="var(--text-3)" />{comp}
-            {answers.ages && <span style={{ color: "var(--text-3)" }}>· {answers.ages}</span>}
+            {answers.travelers.length > 0 && (
+              <span style={{ color: "var(--text-3)" }}>· {answers.travelers.map((t) => t.age).filter(Boolean).join(", ")}</span>
+            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-2)" }}>
             <Icon name="wallet" size={13} stroke="var(--text-3)" />{BUDGET_LABEL[answers.budget] ?? answers.budget}

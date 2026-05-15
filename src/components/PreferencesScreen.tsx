@@ -14,7 +14,6 @@ const INTEREST_OPTIONS = [
   { id: "spa", label: "Spa & Wellness", sub: "Slow mornings, hammam" },
   { id: "music", label: "Music & Festivals", sub: "Concerts, fado, DJs" },
   { id: "shopping", label: "Shopping", sub: "Markets, boutiques, design" },
-  { id: "viral", label: "Viral Spots", sub: "The places everyone tags" },
 ];
 
 function InterestCard({

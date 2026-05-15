@@ -26,6 +26,7 @@ export default function BreezeApp() {
         days: 8,
       },
       composition: null,
+      travelers: [],
       budget: "comfort",
       interests: [],
     };
@@ -92,10 +93,10 @@ export default function BreezeApp() {
   if (screen === "q-composition")
     return (
       <Q_Composition
-        value={{ comp: answers.composition, ages: answers.ages || "" }}
+        value={{ comp: answers.composition, travelers: answers.travelers }}
         onChange={(v) => {
           setAnswer("composition", v.comp);
-          setAnswer("ages", v.ages);
+          setAnswer("travelers", v.travelers);
         }}
         onAdvance={handleAdvance}
         onBack={handleBack}
