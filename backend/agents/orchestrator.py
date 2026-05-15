@@ -4,8 +4,9 @@ from utils.llm import client
 from agents.attraction_manager import run_attraction_manager
 from agents.scheduler import run_scheduler
 from prompts.orchestrator_prompt import build_orchestrator_prompt, build_feedback_prompt
+from langsmith import traceable
 
-
+@traceable(name="Orchestrator Itinerary Generation", tags=["orchestrator", "generation"])
 async def generate_itinerary(
     city: str,
     departure: str,
@@ -89,7 +90,7 @@ async def generate_itinerary(
     match = _extract_json_object(text)
     return json.loads(match) if match else {"days": []}
 
-
+@traceable(name="Orchestrator Feedback Refinement", tags=["orchestrator", "feedback"])
 def refine_feedback(feedback: str, current_itinerary: dict) -> dict:
     message = client.messages.create(
         model="claude-sonnet-4-6",
