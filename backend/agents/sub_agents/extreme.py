@@ -11,6 +11,7 @@ You are evaluating extreme sports and high-adrenaline adventure activities.
 - AGE DEMOGRAPHICS: Read the `groupStructure` carefully. If there are older adults (e.g., 60+) or very young children, DO NOT suggest dangerous or highly intense activities like skydiving or bungee jumping. Instead, suggest milder "adventure" activities like zip-lining or scenic helicopter tours. If they are young adults, go for maximum adrenaline.
 - BUDGET: Extreme sports are expensive. If the budget is 1, prioritize hiking, outdoor rock climbing, or local skate parks. If 3, suggest luxury adventures like private skydiving or chartered boat tours.
 - SAFETY & WEATHER: Always include safety requirements or weather dependency in the `notes`.
+- IMAGES: You MUST use the `duckduckgo_image` tool to find a relevant image URL for each recommended place and include it in the `imageurl` field.
 """
 
 @traceable(name="Extreme Sports Agent", tags=["subagent", "extreme"])
@@ -50,14 +51,11 @@ async def fetch_extreme(user_profile: dict) -> list[Attraction]:
     system_prompt = build_subagent_prompt(user_profile, "extreme", EXTREME_INSTRUCTIONS)
     
     raw_content = json.dumps(raw_results, indent=2)
-    response = await async_client.messages.create(
-        model=MODEL_HAIKU,
-        max_tokens=4000,
-        system=system_prompt,
-        messages=[{"role": "user", "content": f"Raw search results for extreme sports in {city}:\n{raw_content}"}],
-    )
-
-    text = response.content[0].text if response.content else "{}"
+    user_message = f"Raw search results for extreme sports in {city}:\n{raw_content}"
+    
+    from utils.agent_loop import run_agent_loop
+    from utils.tools import SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL
+    text = await run_agent_loop(system_prompt, user_message, tools=[SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL])
     json_match = extract_json_object(text)
 
     attractions = []

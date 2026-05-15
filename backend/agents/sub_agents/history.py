@@ -13,6 +13,7 @@ You are evaluating historical sites, monuments, ruins, and museums.
 - FATIGUE & AGES: History tours can be exhausting. If the `groupStructure` contains elderly individuals (65+) or toddlers (under 5), prioritize indoor museums with seating or easily accessible monuments. If the group is young and energetic, you may highly score massive archaeological sites or ruins that require walking.
 - WEATHER AWARENESS: Consider the nature of the historical site. If it is an outdoor ruin, make sure to add practical advice in the `notes` field (e.g., "Bring water and sunscreen as there is no shade").
 - DESCRIPTION ENRICHMENT: Your `description` field must NOT just be a boring Wikipedia summary. Frame it dynamically for the user. Example: Instead of "This was built in 1500", write "Step back into the 1500s at this massive fortress, a perfect afternoon exploration for your family."
+- IMAGES: You MUST use the `duckduckgo_image` tool to find a relevant image URL for each recommended place and include it in the `imageurl` field, unless it already has an image.
 """
 
 @traceable(name="History Subagent", tags=["subagent", "history"])
@@ -79,14 +80,12 @@ async def fetch_history(user_profile: dict) -> list[Attraction]:
     
     # 4. Call Claude to score, filter, and format the JSON
     raw_json_str = json.dumps(valid_raw, indent=2)
-    message = await async_client.messages.create(
-        model=MODEL_HAIKU,
-        max_tokens=4000,
-        system=system_prompt,
-        messages=[{"role": "user", "content": f"Raw historic sites:\n{raw_json_str}"}]
-    )
+    user_message = f"Raw historic sites:\n{raw_json_str}"
+    
+    from utils.agent_loop import run_agent_loop
+    from utils.tools import SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL
+    text = await run_agent_loop(system_prompt, user_message, tools=[SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL])
 
-    text = message.content[0].text if message.content else "{}"
     json_match = extract_json_object(text)
     
     final_attractions = []

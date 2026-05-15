@@ -14,6 +14,7 @@ You are evaluating dynamic events like concerts, festivals, sports games, and cu
 - BUDGET & PRICING: If the budget is 1, prioritize free street festivals, local community events, or cheap indie shows. If the budget is 3, prioritize VIP experiences, front-row concert tickets, or high-end theater.
 - GROUP MATCHING: If the group is "family" with kids under 12, aggressively reject late-night club events or mature comedy shows. Suggest family-friendly theater or sports.
 - ENRICHMENT: The `description` field MUST clearly state WHAT the event is and WHY this specific group should go. Do not just copy the raw API description.
+- IMAGES: You MUST use the `duckduckgo_image` tool to find a relevant image URL for each recommended place and include it in the `imageurl` field.
 """
 
 @traceable(name="Events Agent", tags=["subagent", "events"])
@@ -64,20 +65,14 @@ async def fetch_events(user_profile: dict) -> list[Attraction]:
     system_prompt = build_subagent_prompt(user_profile, "events", EVENTS_INSTRUCTIONS)
     
     raw_text = json.dumps([a.to_dict() for a in raw], indent=2)
-    message = await async_client.messages.create(
-        model=MODEL_HAIKU,
-        max_tokens=2048,
-        system=system_prompt,
-        messages=[{
-            "role": "user",
-            "content": (
-                f"Here are events in {city} from {start_date} to {end_date}. "
-                f"Curate and enrich them based on the profile:\n\n{raw_text}"
-            ),
-        }],
+    user_message = (
+        f"Here are events in {city} from {start_date} to {end_date}. "
+        f"Curate and enrich them based on the profile:\n\n{raw_text}"
     )
 
-    text = message.content[0].text if message.content else "{}"
+    from utils.agent_loop import run_agent_loop
+    from utils.tools import SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL
+    text = await run_agent_loop(system_prompt, user_message, tools=[SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL])
     json_match = extract_json_object(text)
     
     attractions = []

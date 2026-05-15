@@ -12,6 +12,7 @@ You are a versatile agent handling various requested categories (like theme park
 - FLEXIBILITY: Since your category is dynamic, you must strictly evaluate the results against the `user_profile` interests.
 - BUDGET: Ensure that your recommendations fit the budget tier.
 - SCORING: Calculate the `subAgentScore` based on how well the specific venue aligns with the age demographics and group relation.
+- IMAGES: You MUST use the `duckduckgo_image` tool to find a relevant image URL for each recommended place and include it in the `imageurl` field.
 """
 
 @traceable(name="Generic Agent", tags=["subagent", "generic"])
@@ -71,15 +72,12 @@ async def fetch_generic(user_profile: dict, category: str) -> list[Attraction]:
 
 async def _extract_venues(city: str, category: str, content_blocks: list[str], system_prompt: str) -> list[Attraction]:
     raw_content = "\n\n---\n\n".join(content_blocks)
+    user_message = f"Raw search results for {category} in {city}:\n{raw_content}"
     
-    response = await async_client.messages.create(
-        model=MODEL_HAIKU,
-        max_tokens=4000,
-        system=system_prompt,
-        messages=[{"role": "user", "content": f"Raw search results for {category} in {city}:\n{raw_content}"}],
-    )
+    from utils.agent_loop import run_agent_loop
+    from utils.tools import SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL
+    text = await run_agent_loop(system_prompt, user_message, tools=[SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL])
     
-    text = response.content[0].text if response.content else "{}"
     json_match = extract_json_object(text)
 
     attractions = []

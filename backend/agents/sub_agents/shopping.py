@@ -14,6 +14,7 @@ You are evaluating retail and shopping locations. Your scoring must be ruthlessl
 - AGE DEMOGRAPHICS: If the group is "friends" and ages are 18-25, prioritize trendy streetwear, sneaker boutiques, and viral pop-ups. If the group is "family" with children, prioritize large department stores or malls with diverse offerings.
 - MEN VS WOMEN: Analyze the genders in `groupStructure`. Do not suggest a high-end women's cosmetics flagship if the group consists entirely of 21-year-old men.
 - PRICING FORMAT: In your output, the `prices` field MUST be accurately mapped: 1 for cheap/standard, 2 for mid-tier, 3 for luxury.
+- IMAGES: You MUST use the `duckduckgo_image` tool to find a relevant image URL for each recommended place and include it in the `imageurl` field.
 """
 
 @traceable(name="Shopping Subagent", tags=["subagent", "shopping"])
@@ -57,7 +58,8 @@ async def fetch_shopping(user_profile: dict) -> list[Attraction]:
     )
     
     from utils.agent_loop import run_agent_loop
-    text = await run_agent_loop(system_prompt, user_message)
+    from utils.tools import SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL
+    text = await run_agent_loop(system_prompt, user_message, tools=[SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL])
 
     json_match = extract_json_object(text)
     

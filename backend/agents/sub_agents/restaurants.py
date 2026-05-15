@@ -17,6 +17,7 @@ You are evaluating dining experiences ranging from street food to fine dining.
 - BUDGET MATCHING: The user's budget is mapped to a price tier. If budget is 1, aggressively search for and score highly cheap street food, local markets, and affordable hidden gems. If budget is 3, search for Michelin-starred restaurants, fine dining, or exclusive upscale spots.
 - DIETARY/ACCESSIBILITY: Read the `user_profile` carefully. If there are specific interests like "vegan" or "seafood", ensure the restaurants align. If accessibility is required, ensure the spot is wheelchair friendly.
 - ENRICHMENT: The `description` field MUST clearly state WHAT the cuisine is and WHY this specific group should go. Do not just say "It is a restaurant."
+- IMAGES: You MUST use the `duckduckgo_image` tool to find a relevant image URL for each recommended place and include it in the `imageurl` field.
 """
 
 @traceable(name="Restaurants Agent", tags=["subagent", "food"])
@@ -56,9 +57,10 @@ async def fetch_restaurants(user_profile: dict) -> list[Attraction]:
         f"The traveler has a {price_label} budget. Include must-try local spots."
     )
     
+    from utils.tools import SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL
     system_prompt = build_subagent_prompt(user_profile, "restaurants", RESTAURANTS_INSTRUCTIONS)
 
-    text = await run_agent_loop(system_prompt, user_message)
+    text = await run_agent_loop(system_prompt, user_message, tools=[SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL])
     json_match = extract_json_object(text)
     
     attractions = []
