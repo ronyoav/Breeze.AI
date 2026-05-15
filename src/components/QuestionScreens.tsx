@@ -157,60 +157,37 @@ function QuestionShell({
 }
 
 // ---------- Q1: Destination -------------------------------------------
-const DESTINATION_TREE: Record<string, Record<string, string[]>> = {
-  "Europe": {
-    "Italy": ["Rome", "Milan", "Venice", "Florence", "Naples", "Amalfi Coast"],
-    "France": ["Paris", "Lyon", "Nice", "Marseille", "Bordeaux"],
-    "Spain": ["Barcelona", "Madrid", "Seville", "Valencia", "Ibiza"],
-    "UK": ["London", "Edinburgh", "Manchester", "Bath"],
-    "Germany": ["Berlin", "Munich", "Frankfurt", "Hamburg"],
-    "Portugal": ["Lisbon", "Porto", "Faro", "Sintra"],
-    "Greece": ["Athens", "Santorini", "Mykonos", "Crete"],
-    "Netherlands": ["Amsterdam", "Rotterdam", "Utrecht"],
-    "Switzerland": ["Zurich", "Geneva", "Lucerne"],
-    "Croatia": ["Dubrovnik", "Split", "Zagreb"],
-    "Turkey": ["Istanbul", "Cappadocia", "Antalya"],
-    "Iceland": ["Reykjavik"],
-    "Poland": ["Warsaw", "Krakow"]
-  },
-  "Asia": {
-    "Japan": ["Tokyo", "Kyoto", "Osaka", "Hokkaido", "Okinawa"],
-    "Thailand": ["Bangkok", "Chiang Mai", "Phuket", "Koh Samui"],
-    "Vietnam": ["Hanoi", "Ho Chi Minh City", "Da Nang"],
-    "India": ["New Delhi", "Mumbai", "Jaipur", "Goa"],
-    "Indonesia": ["Bali", "Jakarta"],
-    "South Korea": ["Seoul", "Busan", "Jeju"],
-    "Malaysia": ["Kuala Lumpur", "Penang"],
-    "Singapore": ["Singapore"],
-    "Philippines": ["Manila", "Boracay", "Palawan"],
-    "Taiwan": ["Taipei"]
-  },
-  "North America": {
-    "USA": ["New York", "Los Angeles", "Chicago", "Miami", "Las Vegas", "San Francisco"],
-    "Canada": ["Toronto", "Vancouver", "Montreal", "Banff"],
-    "Mexico": ["Mexico City", "Cancun", "Tulum", "Oaxaca"]
-  },
-  "South America": {
-    "Brazil": ["Rio de Janeiro", "São Paulo"],
-    "Argentina": ["Buenos Aires", "Mendoza", "Patagonia"],
-    "Peru": ["Lima", "Cusco", "Machu Picchu"],
-    "Colombia": ["Bogota", "Medellin", "Cartagena"],
-    "Chile": ["Santiago", "Patagonia"]
-  },
-  "Africa": {
-    "South Africa": ["Cape Town", "Johannesburg"],
-    "Morocco": ["Marrakech", "Casablanca", "Fes"],
-    "Egypt": ["Cairo", "Luxor", "Giza"],
-    "Kenya": ["Nairobi", "Mombasa"],
-    "Tanzania": ["Zanzibar", "Serengeti"],
-    "Mauritius": ["Port Louis"]
-  },
-  "Oceania": {
-    "Australia": ["Sydney", "Melbourne", "Brisbane", "Gold Coast"],
-    "New Zealand": ["Auckland", "Queenstown", "Wellington"],
-    "Fiji": ["Nadi", "Suva"]
-  }
-};
+const KNOWN_CITIES = [
+  "Rome","Milan","Venice","Florence","Naples","Amalfi Coast","Paris","Lyon","Nice","Marseille",
+  "Bordeaux","Barcelona","Madrid","Seville","Valencia","Ibiza","London","Edinburgh","Manchester",
+  "Bath","Berlin","Munich","Frankfurt","Hamburg","Lisbon","Porto","Faro","Sintra","Athens",
+  "Santorini","Mykonos","Crete","Amsterdam","Rotterdam","Utrecht","Zurich","Geneva","Lucerne",
+  "Dubrovnik","Split","Zagreb","Istanbul","Cappadocia","Antalya","Reykjavik","Warsaw","Krakow",
+  "Tokyo","Kyoto","Osaka","Hokkaido","Okinawa","Bangkok","Chiang Mai","Phuket","Koh Samui",
+  "Hanoi","Ho Chi Minh City","Da Nang","New Delhi","Mumbai","Jaipur","Goa","Bali","Jakarta",
+  "Seoul","Busan","Jeju","Kuala Lumpur","Penang","Manila","Boracay","Palawan","Taipei",
+  "New York","Los Angeles","Chicago","Miami","Las Vegas","San Francisco","Toronto","Vancouver",
+  "Montreal","Banff","Mexico City","Cancun","Tulum","Oaxaca","Rio de Janeiro","São Paulo",
+  "Buenos Aires","Mendoza","Lima","Cusco","Machu Picchu","Bogota","Medellin","Cartagena",
+  "Santiago","Cape Town","Johannesburg","Marrakech","Casablanca","Fes","Cairo","Luxor","Giza",
+  "Nairobi","Mombasa","Zanzibar","Sydney","Melbourne","Brisbane","Gold Coast","Auckland",
+  "Queenstown","Wellington","Tel Aviv","Jerusalem","Dubai","Abu Dhabi","Doha","Riyadh",
+  "Muscat","Beirut","Amman","Petra","Tbilisi","Baku","Yerevan","Prague","Vienna","Budapest",
+  "Bratislava","Krakow","Gdansk","Tallinn","Riga","Vilnius","Helsinki","Stockholm","Oslo",
+  "Copenhagen","Brussels","Bruges","Luxembourg","Valletta","Nicosia","Thessaloniki","Heraklion",
+  "Palermo","Naples","Bologna","Turin","Genoa","Verona","Pisa","Sorrento","Positano",
+  "Cannes","Strasbourg","Toulouse","Nantes","Rennes","Bilbao","Malaga","Granada","Cordoba",
+  "Palma","Tenerife","Las Palmas","Porto","Braga","Lagos","Algarve","Funchal","Accra",
+  "Lagos","Dakar","Abidjan","Addis Ababa","Dar es Salaam","Kampala","Kigali","Windhoek",
+  "Casablanca","Tunis","Algiers","Tripoli","Khartoum","Colombo","Kathmandu","Dhaka",
+  "Karachi","Lahore","Islamabad","Tashkent","Almaty","Astana","Ulaanbaatar","Phnom Penh",
+  "Vientiane","Yangon","Naypyidaw","Colombo","Male","Thimphu","Dili","Port Moresby",
+  "Suva","Apia","Nuku'alofa","Honiara","Lima","Bogota","Quito","La Paz","Montevideo",
+  "Asuncion","Georgetown","Paramaribo","Cayenne","Havana","San Jose","Guatemala City",
+  "Panama City","Managua","Tegucigalpa","San Salvador","Belize City","Nassau","Bridgetown",
+  "Port of Spain","Kingston","Santo Domingo","San Juan","Monterrey","Guadalajara","Puebla",
+];
+
 
 const COORDINATE_MAP: Record<string, [number, number]> = {
   // Continents
@@ -398,131 +375,96 @@ interface Q1Props {
 }
 
 export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total, dark, onToggle }: Q1Props) {
-  const [selections, setSelections] = useState<string[]>(() => {
-    if (!value) return [];
-    
-    const cities = value.split(",").map(s => s.trim()).filter(Boolean);
-    if (cities.length === 0) return [];
+  const [cities, setCities] = useState<string[]>(() =>
+    value ? value.split(",").map(s => s.trim()).filter(Boolean) : []
+  );
+  const [inputVal, setInputVal] = useState("");
+  const [suggestions, setSuggestions] = useState<{ name: string; subtitle?: string }[]>([]);
+  const [focused, setFocused] = useState(false);
 
-    const firstCity = cities[0];
-    for (const continent of Object.keys(DESTINATION_TREE)) {
-      if (continent === firstCity) return [continent];
-      for (const country of Object.keys(DESTINATION_TREE[continent])) {
-        if (country === firstCity) return [continent, country];
-        if (DESTINATION_TREE[continent][country].includes(firstCity)) {
-          return [continent, country, ...cities];
-        }
-      }
-    }
-    return [...cities];
-  });
+  const toTitleCase = (s: string) =>
+    s.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
 
-  const [customText, setCustomText] = useState("");
+  // Autocomplete: instant local matches + debounced Nominatim
+  useEffect(() => {
+    if (inputVal.length < 2) { setSuggestions([]); return; }
+    const lower = inputVal.toLowerCase();
+    const local = KNOWN_CITIES
+      .filter(c => c.toLowerCase().startsWith(lower) && !cities.includes(c))
+      .slice(0, 5)
+      .map(name => ({ name }));
+    setSuggestions(local);
 
-  const toTitleCase = (str: string) =>
-    str.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(inputVal)}&format=json&limit=6&addressdetails=1`,
+          { headers: { "User-Agent": "Breeze.AI" } }
+        );
+        const data = await res.json();
+        const remote = (data as any[])
+          .map(d => ({
+            name: d.address?.city || d.address?.town || d.address?.village || d.name,
+            subtitle: d.address?.country,
+          }))
+          .filter(d => d.name && !cities.includes(d.name));
+        setSuggestions(prev => {
+          const merged = [...prev];
+          for (const r of remote) {
+            if (!merged.find(m => m.name.toLowerCase() === r.name.toLowerCase())) merged.push(r);
+          }
+          return merged.slice(0, 6);
+        });
+      } catch { /* keep local results */ }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [inputVal, cities]);
 
-  const currentContinent = selections[0];
-  const currentCountry = selections[1];
-  const currentCities = selections.slice(2);
-
-  let options: string[] = [];
-  let placeholder = "";
-
-  if (!currentContinent) {
-    options = Object.keys(DESTINATION_TREE);
-    placeholder = "";
-  } else if (!currentCountry) {
-    options = DESTINATION_TREE[currentContinent] ? Object.keys(DESTINATION_TREE[currentContinent]) : [];
-    placeholder = "Type country...";
-  } else {
-    options = (DESTINATION_TREE[currentContinent] && DESTINATION_TREE[currentContinent][currentCountry]) 
-      ? DESTINATION_TREE[currentContinent][currentCountry] 
-      : [];
-    placeholder = "Type city...";
-  }
-
-  const matches = customText
-    ? options.filter((c) => c.toLowerCase().includes(customText.toLowerCase()))
-    : options;
-
-  const handleSelect = (opt: string) => {
-    if (selections.length >= 2) {
-      if (selections.includes(opt)) {
-        setSelections(selections.filter(s => s !== opt));
-      } else {
-        setSelections([...selections, opt]);
-      }
-    } else {
-      setSelections([...selections, opt]);
-    }
-    setCustomText("");
+  const addCity = (name: string) => {
+    const trimmed = toTitleCase(name.trim());
+    if (!trimmed || cities.includes(trimmed)) return;
+    const next = [...cities, trimmed];
+    setCities(next);
+    onChange(next.join(", "));
+    setInputVal("");
+    setSuggestions([]);
   };
 
-  const handleRemoveLevel = () => {
-    setSelections(selections.slice(0, selections.length - 1));
-  };
-  
-  const handleRemoveCity = (city: string) => {
-    setSelections(selections.filter(s => s !== city));
+  const removeCity = (name: string) => {
+    const next = cities.filter(c => c !== name);
+    setCities(next);
+    onChange(next.join(", "));
   };
 
   const submit = () => {
-    const finalCities = [...currentCities];
-    const trimmed = toTitleCase(customText.trim());
-    if (trimmed && !finalCities.includes(trimmed)) {
-      finalCities.push(trimmed);
-    }
-    if (finalCities.length > 0 || (selections.length >= 2 && customText.trim())) {
-      onChange(finalCities.join(", "));
-      onAdvance();
-    }
+    if (inputVal.trim()) addCity(inputVal);
+    if (cities.length > 0 || inputVal.trim()) onAdvance();
   };
 
-  const isNextDisabled = selections.length < 2 || (currentCities.length === 0 && !customText.trim());
+  const isNextDisabled = cities.length === 0 && !inputVal.trim();
 
-  const currentCityForGlobe = currentCities.length > 0 ? currentCities[currentCities.length - 1] : selections[selections.length - 1];
+  // Globe
+  const lastCity = cities[cities.length - 1] || "";
   const [liveLocation, setLiveLocation] = useState<[number, number] | undefined>(undefined);
-
   useEffect(() => {
-    if (!currentCityForGlobe) {
-      setLiveLocation(undefined);
-      return;
-    }
-
-    if (COORDINATE_MAP[currentCityForGlobe]) {
-      setLiveLocation(COORDINATE_MAP[currentCityForGlobe]);
-      return;
-    }
-
-    // Live Geocoding for custom destinations
-    const fetchCoords = async () => {
+    if (!lastCity) { setLiveLocation(undefined); return; }
+    if (COORDINATE_MAP[lastCity]) { setLiveLocation(COORDINATE_MAP[lastCity]); return; }
+    const t = setTimeout(async () => {
       try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(currentCityForGlobe)}&format=json&limit=1`);
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(lastCity)}&format=json&limit=1`);
         const data = await res.json();
-        if (data && data.length > 0) {
-          setLiveLocation([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
-        }
-      } catch (err) {
-        console.error("Geocoding failed", err);
-      }
-    };
-    
-    // Add small delay to prevent rapid requests if user is typing
-    const t = setTimeout(fetchCoords, 500);
+        if (data?.[0]) setLiveLocation([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
+      } catch { /* no globe update */ }
+    }, 500);
     return () => clearTimeout(t);
-  }, [currentCityForGlobe]);
+  }, [lastCity]);
 
   return (
     <QuestionShell
       stepIdx={stepIdx}
       total={total}
       kicker="Question 01"
-      title={
-        <>
-          Where are you <span className="serif">flying to?</span>
-        </>
-      }
+      title={<>Where are you <span className="serif">flying to?</span></>}
       nextDisabled={isNextDisabled}
       onNext={submit}
       onBack={onBack}
@@ -530,127 +472,85 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
       onToggle={onToggle}
       sideElement={<GlobeAnimation location={liveLocation} dark={dark} />}
     >
-      <div style={{ maxWidth: 600 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 12,
-            width: "100%",
-            padding: "16px 26px",
-            minHeight: 82,
-            border: "1px solid var(--border)",
-            background: "var(--bg-2)",
-            borderRadius: "var(--r-l)",
-          }}
-        >
-          {currentCities.length > 0 ? (
-            currentCities.map((city) => (
-              <div
-                key={city}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  background: "var(--accent-soft)",
-                  color: "var(--accent-deep)",
-                  padding: "8px 16px",
-                  borderRadius: 999,
-                  fontSize: 22,
-                  fontWeight: 500,
-                }}
-              >
+      <div style={{ maxWidth: 560 }}>
+        {/* Added city chips */}
+        {cities.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+            {cities.map(city => (
+              <div key={city} style={{
+                display: "flex", alignItems: "center", gap: 8,
+                background: "var(--accent-soft)", color: "var(--accent-deep)",
+                padding: "8px 16px", borderRadius: 999, fontSize: 18, fontWeight: 500,
+              }}>
                 {city}
-                <button
-                  onClick={() => handleRemoveCity(city)}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "var(--accent-deep)",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: 4,
-                    borderRadius: 999,
-                  }}
-                >
-                  <Icon name="x" size={16} />
+                <button onClick={() => removeCity(city)} style={{
+                  background: "transparent", border: "none", color: "var(--accent-deep)",
+                  cursor: "pointer", display: "flex", alignItems: "center", padding: 2,
+                }}>
+                  <Icon name="x" size={14} />
                 </button>
               </div>
-            ))
-          ) : selections.length > 0 ? (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                background: "var(--accent-soft)",
-                color: "var(--accent-deep)",
-                padding: "8px 16px",
-                borderRadius: 999,
-                fontSize: 22,
-                fontWeight: 500,
-              }}
-            >
-              {selections[selections.length - 1]}
-              <button
-                onClick={handleRemoveLevel}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "var(--accent-deep)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: 4,
-                  borderRadius: 999,
-                }}
-              >
-                <Icon name="x" size={16} />
-              </button>
-            </div>
-          ) : null}
+            ))}
+          </div>
+        )}
+
+        {/* Input with autocomplete dropdown */}
+        <div style={{ position: "relative" }}>
           <input
-            value={customText}
-            onChange={(e) => setCustomText(toTitleCase(e.target.value))}
-            placeholder={placeholder}
-            autoFocus
-            onKeyDown={(e) => {
+            value={inputVal}
+            onChange={e => setInputVal(e.target.value)}
+            onKeyDown={e => {
               if (e.key === "Enter") {
-                if (customText.trim() && options.includes(customText.trim())) {
-                  handleSelect(customText.trim());
-                } else if (customText.trim()) {
-                  handleSelect(customText.trim());
-                } else if (!isNextDisabled) {
-                  submit();
-                }
+                e.preventDefault();
+                if (inputVal.trim()) addCity(inputVal);
+                else if (cities.length > 0) onAdvance();
               }
             }}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setTimeout(() => setFocused(false), 200)}
+            placeholder={cities.length === 0 ? "Type a city, e.g. Tel Aviv" : "Add another city..."}
+            autoFocus
             style={{
-              flex: 1,
-              minWidth: 200,
-              fontSize: 32,
-              fontWeight: 500,
-              fontVariationSettings: '"opsz" 48',
-              background: "transparent",
-              border: "none",
-              outline: "none",
-              color: "var(--text)",
-              letterSpacing: "-.02em",
+              width: "100%", padding: "18px 24px", fontSize: 28, fontWeight: 500,
+              letterSpacing: "-.02em", background: "var(--bg-2)",
+              border: "1px solid var(--border)", borderRadius: "var(--r-l)",
+              outline: "none", color: "var(--text)", fontFamily: "inherit",
+              boxSizing: "border-box",
             }}
           />
+
+          {focused && suggestions.length > 0 && (
+            <div style={{
+              position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0,
+              background: "var(--bg-2)", border: "1px solid var(--border)",
+              borderRadius: "var(--r-l)", overflow: "hidden", zIndex: 20,
+              boxShadow: "0 8px 24px rgba(0,0,0,.08)",
+            }}>
+              {suggestions.map((s, i) => (
+                <button
+                  key={i}
+                  onMouseDown={() => addCity(s.name)}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    width: "100%", padding: "13px 20px", textAlign: "left",
+                    background: "transparent", border: "none",
+                    borderBottom: i < suggestions.length - 1 ? "1px solid var(--border)" : "none",
+                    cursor: "pointer", fontFamily: "inherit",
+                  }}
+                >
+                  <span style={{ fontSize: 17, fontWeight: 500, color: "var(--text)" }}>{s.name}</span>
+                  {s.subtitle && <span style={{ fontSize: 12, color: "var(--text-3)" }}>{s.subtitle}</span>}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        
-        <div style={{ marginTop: 22, display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {matches.slice(0, 12).map((c) => (
-            <SoftBtn key={c} active={currentCities.includes(c)} onClick={() => handleSelect(c)}>
-              {c}
-            </SoftBtn>
-          ))}
-        </div>
+
+        <p style={{ margin: "12px 0 0", fontSize: 13, color: "var(--text-3)" }}>
+          {cities.length === 0
+            ? "Select a suggestion or press Enter to confirm · add multiple cities for a multi-stop trip"
+            : `${cities.length} ${cities.length === 1 ? "city" : "cities"} added · type to add another stop`}
+        </p>
       </div>
     </QuestionShell>
   );
