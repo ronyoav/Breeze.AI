@@ -2,52 +2,44 @@ import json
 import httpx
 from utils.api_clients import TICKETMASTER_BASE, ticketmaster_key
 from utils.agent_loop import run_agent_loop
-from utils.llm import async_client, MODEL_HAIKU
+from utils.llm import async_client, MODEL_HAIKU, build_subagent_prompt, extract_json_object
 from utils.parsers import Attraction
 from cache.redis import get_cached, set_cached, attraction_cache_key
 from langsmith import traceable
 
-SYSTEM_PROMPT = """You are the Sports Agent for Breeze.AI, a travel planning assistant.
-Your specialty is finding the best sports experiences for travelers: live matches, stadiums,
-sporting venues, outdoor sports activities, and fan experiences.
-
-Use the search_web tool to find real, current options for the city and travel dates provided.
-Prioritize events and activities available during the traveler's visit window.
-After searching, return ONLY a valid JSON array — no extra text, no markdown:
-[
-  {
-    "id": "sports-1",
-    "name": "Activity or Venue Name",
-    "category": "sports",
-    "description": "2-3 sentences about the experience",
-    "address": "neighborhood or venue address",
-    "url": "source url if available, else empty string",
-    "tip": "tickets, best time to go, booking advice, or seasonal note"
-  }
-]
-Include 6-10 distinct options."""
-
-CURATE_PROMPT = """You are the Sports Agent for Breeze.AI, a travel planning assistant.
-You will receive a list of live sports matches and events fetched from Ticketmaster.
-Curate and enrich them for a traveler — highlight what makes each worth attending.
-Return ONLY a valid JSON array — no extra text, no markdown:
-[
-  {
-    "id": "sports-1",
-    "name": "Match or Event Name",
-    "category": "sports",
-    "description": "2-3 engaging sentences about the event and the atmosphere",
-    "address": "venue name and/or address",
-    "url": "ticket url",
-    "tip": "booking advice, price range, or what to expect as a visitor"
-  }
-]
-Keep all events if 8 or fewer, otherwise pick the 8 most compelling."""
-
+SPORTS_INSTRUCTIONS = """
+=== SPORTS AGENT SPECIFIC BEHAVIOR ===
+You are evaluating live sports matches, stadium tours, and sporting events.
+- BUDGET MATCHING: If the budget is 1, prioritize cheap local games, minor leagues, or free outdoor sports parks. If the budget is 3, suggest VIP seating at major league games, expensive golf courses, or luxury box experiences.
+- INTERESTS: If their interests include specific sports, ensure those are prioritized.
+- ENRICHMENT: The `description` field MUST clearly state the atmosphere. If it is a live game, specify who is playing.
+"""
 
 @traceable(name="Sports Agent", tags=["subagent", "sports"])
-async def fetch_sports(city: str, start_date: str, end_date: str) -> list[Attraction]:
-    key = attraction_cache_key(city, "sports")
+async def fetch_sports(user_profile: dict) -> list[Attraction]:
+    """
+    Sports Sub-Agent
+    
+    Role: Evaluates live sports matches, stadium tours, and sporting events.
+    
+    Behavior:
+    1. Extracts travel dates and interests from the `user_profile`.
+    2. Queries the Ticketmaster API for live sports matches during the trip dates.
+    3. Falls back to a generic web search for stadiums and tours if no live events match.
+    4. Curates the events with LLM logic to emphasize the atmosphere and VIP vs standard tickets based on budget.
+    5. Returns a structured JSON array of sports Attraction objects.
+    """
+    location = user_profile.get("location", {})
+    city = location.get("city", "")
+    dates = user_profile.get("dates", {})
+    start_date = dates.get("start", "")
+    end_date = dates.get("end", "")
+    session_id = user_profile.get("session_id", "default")
+    
+    if not city or not start_date or not end_date:
+        return []
+
+    key = attraction_cache_key(city, f"sports_{session_id}")
     cached = await get_cached(key)
     if cached:
         return [Attraction(**a) for a in cached]
@@ -55,25 +47,35 @@ async def fetch_sports(city: str, start_date: str, end_date: str) -> list[Attrac
     # Try Ticketmaster first for real match data
     tm_results = await _fetch_ticketmaster(city, start_date, end_date)
 
+    system_prompt = build_subagent_prompt(user_profile, "sports", SPORTS_INSTRUCTIONS)
+
     if tm_results:
-        attractions = await _curate_with_llm(tm_results, city, start_date, end_date)
+        attractions = await _curate_with_llm(tm_results, city, start_date, end_date, system_prompt)
     else:
         # Fall back to Tavily agent search
         user_message = (
-            f"Find the best sports activities, stadiums, and live sport events in {city} "
+            f"Search the web to find the best sports activities, stadiums, and live sport events in {city} "
             f"for a traveler visiting from {start_date} to {end_date}. "
             f"Highlight anything happening during that specific period."
         )
-        text = await run_agent_loop(SYSTEM_PROMPT, user_message)
-        start, end = text.find("["), text.rfind("]")
+        text = await run_agent_loop(system_prompt, user_message)
+        json_match = extract_json_object(text)
         attractions = []
-        if start != -1 and end != -1:
+        if json_match:
             try:
-                attractions = [Attraction(**a) for a in json.loads(text[start:end + 1])]
+                parsed_data = json.loads(json_match)
+                parsed_list = parsed_data.get("results", [])
+                for item in parsed_list:
+                    item["category"] = "sports"
+                    if "id" not in item:
+                        item["id"] = "generated_id"
+                    attractions.append(Attraction(**item))
             except Exception:
                 pass
 
-    await set_cached(key, [a.to_dict() for a in attractions])
+    if attractions:
+        await set_cached(key, [a.to_dict() for a in attractions])
+        
     return attractions
 
 
@@ -111,27 +113,36 @@ async def _fetch_ticketmaster(city: str, start_date: str, end_date: str) -> list
 
 
 async def _curate_with_llm(
-    raw: list[Attraction], city: str, start_date: str, end_date: str
+    raw: list[Attraction], city: str, start_date: str, end_date: str, system_prompt: str
 ) -> list[Attraction]:
     raw_text = json.dumps([a.to_dict() for a in raw], indent=2)
     message = await async_client.messages.create(
         model=MODEL_HAIKU,
-        max_tokens=2048,
-        system=CURATE_PROMPT,
+        max_tokens=4000,
+        system=system_prompt,
         messages=[{
             "role": "user",
             "content": (
                 f"Here are live sports events in {city} from {start_date} to {end_date}. "
-                f"Curate and enrich them:\n\n{raw_text}"
+                f"Curate and enrich them based on the profile:\n\n{raw_text}"
             ),
         }],
     )
 
-    text = message.content[0].text if message.content else "[]"
-    start, end = text.find("["), text.rfind("]")
-    if start != -1 and end != -1:
+    text = message.content[0].text if message.content else "{}"
+    json_match = extract_json_object(text)
+    
+    attractions = []
+    if json_match:
         try:
-            return [Attraction(**a) for a in json.loads(text[start:end + 1])]
+            parsed_data = json.loads(json_match)
+            parsed_list = parsed_data.get("results", [])
+            for item in parsed_list:
+                item["category"] = "sports"
+                if "id" not in item:
+                    item["id"] = "generated_id"
+                attractions.append(Attraction(**item))
         except Exception:
             pass
-    return raw
+            
+    return attractions or raw
