@@ -1,7 +1,7 @@
 import asyncio
 import json
 import httpx
-from utils.api_clients import TICKETMASTER_BASE, EVENTBRITE_BASE, ticketmaster_key, eventbrite_key
+from utils.api_clients import TICKETMASTER_BASE, EVENTBRITE_BASE, ticketmaster_key, eventbrite_key, tavily_search
 from utils.llm import async_client, MODEL_HAIKU, build_subagent_prompt, extract_json_object
 from utils.parsers import Attraction
 from cache.redis import get_cached, set_cached, attraction_cache_key
@@ -54,6 +54,9 @@ async def fetch_events(user_profile: dict) -> list[Attraction]:
     for r in results:
         if not isinstance(r, Exception):
             raw.extend(r)
+
+    if not raw:
+        raw = await _tavily_fallback(city, start_date, end_date)
 
     if not raw:
         return []
@@ -124,6 +127,23 @@ async def _fetch_ticketmaster(city: str, start_date: str, end_date: str) -> list
         )
         for i, e in enumerate(events)
     ]
+
+
+async def _tavily_fallback(city: str, start_date: str, end_date: str) -> list[Attraction]:
+    try:
+        result = await tavily_search(f"events concerts festivals {city} {start_date}", 6)
+    except Exception:
+        return []
+    attractions = []
+    for i, r in enumerate(result.get("results", [])):
+        attractions.append(Attraction(
+            id=f"tavily-events-{i}",
+            name=r.get("title", "").split(" - ")[0].strip(),
+            category="events",
+            description=str(r.get("content", r.get("snippet", "")))[:200],
+            url=r.get("url", ""),
+        ))
+    return attractions
 
 
 async def _fetch_eventbrite(city: str, start_date: str, end_date: str) -> list[Attraction]:
