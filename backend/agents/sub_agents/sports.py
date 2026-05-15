@@ -12,6 +12,7 @@ You are evaluating live sports matches, stadium tours, and sporting events.
 - BUDGET MATCHING: If the budget is 1, prioritize cheap local games, minor leagues, or free outdoor sports parks. If the budget is 3, suggest VIP seating at major league games, expensive golf courses, or luxury box experiences.
 - INTERESTS: If their interests include specific sports, ensure those are prioritized.
 - ENRICHMENT: The `description` field MUST clearly state the atmosphere. If it is a live game, specify who is playing.
+- IMAGES: You MUST use the `duckduckgo_image` tool to find a relevant image URL for each recommended place and include it in the `imageurl` field.
 """
 
 @traceable(name="Sports Agent", tags=["subagent", "sports"])
@@ -57,7 +58,9 @@ async def fetch_sports(user_profile: dict) -> list[Attraction]:
             f"for a traveler visiting from {start_date} to {end_date}. "
             f"Highlight anything happening during that specific period."
         )
-        text = await run_agent_loop(SYSTEM_PROMPT, user_message)
+        from utils.agent_loop import run_agent_loop
+        from utils.tools import SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL
+        text = await run_agent_loop(system_prompt, user_message, tools=[SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL])
         start, end = text.find("["), text.rfind("]")
         attractions = []
         if start != -1 and end != -1:
@@ -126,20 +129,15 @@ async def _curate_with_llm(
     raw: list[Attraction], city: str, start_date: str, end_date: str, system_prompt: str
 ) -> list[Attraction]:
     raw_text = json.dumps([a.to_dict() for a in raw], indent=2)
-    message = await async_client.messages.create(
-        model=MODEL_HAIKU,
-        max_tokens=4000,
-        system=system_prompt,
-        messages=[{
-            "role": "user",
-            "content": (
-                f"Here are live sports events in {city} from {start_date} to {end_date}. "
-                f"Curate and enrich them based on the profile:\n\n{raw_text}"
-            ),
-        }],
+    user_message = (
+        f"Here are live sports events in {city} from {start_date} to {end_date}. "
+        f"Curate and enrich them based on the profile:\n\n{raw_text}"
     )
 
-    text = message.content[0].text if message.content else "{}"
+    from utils.agent_loop import run_agent_loop
+    from utils.tools import SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL
+    text = await run_agent_loop(system_prompt, user_message, tools=[SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL])
+
     json_match = extract_json_object(text)
     
     attractions = []

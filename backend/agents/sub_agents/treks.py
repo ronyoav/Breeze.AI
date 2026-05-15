@@ -11,6 +11,7 @@ You are evaluating hiking trails, trekking routes, and outdoor nature tours.
 - FITNESS & DEMOGRAPHICS: Read the `groupStructure`. If the group contains elderly people or young children, you MUST prioritize easy, flat, paved, or short nature walks. If the group is young and energetic, prioritize challenging hikes, summits, and intense trekking routes.
 - ACCESSIBILITY: If the user requires accessibility, you must only suggest flat, paved trails or accessible boardwalks.
 - ENRICHMENT: The `notes` field MUST clearly state the difficulty level and duration of the trek.
+- IMAGES: You MUST use the `duckduckgo_image` tool to find a relevant image URL for each recommended place and include it in the `imageurl` field.
 """
 
 @traceable(name="Treks Agent", tags=["subagent", "outdoor"])
@@ -44,9 +45,10 @@ async def fetch_treks(user_profile: dict) -> list[Attraction]:
         f"in and around {city}. Include a mix of difficulties."
     )
 
+    from utils.tools import SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL
     system_prompt = build_subagent_prompt(user_profile, "treks", TREKS_INSTRUCTIONS)
 
-    text = await run_agent_loop(system_prompt, user_message)
+    text = await run_agent_loop(system_prompt, user_message, tools=[SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL])
     json_match = extract_json_object(text)
     
     attractions = []
