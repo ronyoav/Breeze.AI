@@ -8,20 +8,19 @@ from agents.sub_agents.shopping import fetch_shopping
 async def test_agent():
     # Provide the mock user profile directly
     user_profile = {
-        "userName": "College Bros",
-        "session_id": "c8d1f3b5-92e4-41d8-a63c-7e81b5d4a9f1",
+        "userName": "Alex Smith",
         "groupRelation": "friends",
         "groupStructure": {
-            "1": {"gender": "male", "age": 21},
-            "2": {"gender": "male", "age": 21},
-            "3": {"gender": "male", "age": 22}
+            "1": {"gender": "male", "age": 25},
+            "2": {"gender": "female", "age": 24}
         },
-        "budget": 1,
-        "dates": {"start": "2026-03-10", "end": "2026-03-15"},
-        "daysNumber": 6,
-        "location": {"country": "France", "city": "Paris"}, # Test in Paris
+        "budget": 2,
+        "dates": {"start": "2026-07-10", "end": "2026-07-15"},
+        "daysNumber": 5,
+        "location": {"country": "Japan", "city": "Tokyo"},
         "accessibility": False,
-        "interests": ["shopping", "nightlife", "sports"]
+        "interests": ["history", "shopping", "anime"],
+        "session_id": "test_tokyo_session_123"
     }
 
     print("Searching for shopping spots using the dynamic Claude scoring agent...")

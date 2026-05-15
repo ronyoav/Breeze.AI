@@ -44,65 +44,21 @@ async def fetch_shopping(user_profile: dict) -> list[Attraction]:
     if cached:
         return [Attraction(**a) for a in cached]
 
-    # Map the numerical budget back to the shop_types we need
-    shop_types = "boutique|jewelry|watches" if budget_num == 3 else "mall|department_store|clothes"
-    
-    overpass_query = f"""
-    [out:json];
-    area[name="{city}"]->.searchArea;
-    (
-      node["shop"~"{shop_types}"](area.searchArea);
-      way["shop"~"{shop_types}"](area.searchArea);
-    );
-    out center 15;
-    """
-
-    async with httpx.AsyncClient(timeout=30) as client:
-        res = await client.get(
-            OVERPASS_BASE,
-            params={'data': overpass_query},
-            headers={'User-Agent': 'Breeze.AI Hackathon Project'}
-        )
-        res.raise_for_status()
-        data = res.json()
-
-    raw_attractions = []
-    for el in data.get('elements', []):
-        tags = el.get('tags', {})
-        name = tags.get('name')
-        if not name:
-            continue
-        
-        lat = el.get('lat') or (el.get('center', {}).get('lat'))
-        lon = el.get('lon') or (el.get('center', {}).get('lon'))
-        street = tags.get('addr:street', '')
-        housenumber = tags.get('addr:housenumber', '')
-        address = f"{housenumber} {street}".strip() if street else city
-        
-        raw_attractions.append({
-            "id": str(el.get('id', id(el))),
-            "name": name,
-            "address": address,
-            "coordinates": {"lat": lat, "lng": lon} if lat and lon else None,
-            "shop_type": tags.get('shop')
-        })
-
-    if not raw_attractions:
-        return []
-
     # 2. Build the dynamic prompt using the Injector
     system_prompt = build_subagent_prompt(user_profile, "shopping", SHOPPING_INSTRUCTIONS)
     
-    # 3. Call Claude to score, filter, and format the JSON
-    raw_json_str = json.dumps(raw_attractions, indent=2)
-    message = await async_client.messages.create(
-        model=MODEL_HAIKU,
-        max_tokens=4000,
-        system=system_prompt,
-        messages=[{"role": "user", "content": f"Raw shopping spots:\n{raw_json_str}"}]
-    )
+    # Map the numerical budget back to the shop_types we need
+    shop_types = "luxury boutiques, designer fashion, jewelry, and high-end watches" if budget_num == 3 else "popular malls, department stores, thrift shops, and trendy clothing stores"
 
-    text = message.content[0].text if message.content else "{}"
+    # 3. Call Tavily agent loop to search the web
+    user_message = (
+        f"Search the web to find the best {shop_types} in {city}. "
+        f"Make sure they are actual locations in {city}."
+    )
+    
+    from utils.agent_loop import run_agent_loop
+    text = await run_agent_loop(system_prompt, user_message)
+
     json_match = extract_json_object(text)
     
     attractions = []
