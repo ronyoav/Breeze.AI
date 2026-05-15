@@ -129,7 +129,7 @@ async def run_attraction_manager(
             tasks.append(fetcher_map[interest]())
         else:
             # Fallback to generic subagent for unknown interests
-            tasks.append(fetch_generic(city, interest, budget))
+            tasks.append(fetch_generic(input_data, interest))
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
