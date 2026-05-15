@@ -102,12 +102,12 @@ async def fetch_history(user_profile: dict) -> list[Attraction]:
         except Exception:
             pass
 
-    if final_attractions:
-        if not valid_attractions:
-        valid_attractions = await _tavily_fallback(city)
+    if not final_attractions:
+        final_attractions = await _tavily_fallback(city)
 
-    await set_cached(key, [a.to_dict() for a in final_attractions])
-        
+    if final_attractions:
+        await set_cached(key, [a.to_dict() for a in final_attractions])
+
     return final_attractions
 
 
