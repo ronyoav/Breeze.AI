@@ -51,7 +51,20 @@ async def fetch_sports(user_profile: dict) -> list[Attraction]:
     if tm_results:
         attractions = await _curate_with_llm(tm_results, city, start_date, end_date, system_prompt)
     else:
-        attractions = await _tavily_fallback(city, start_date, end_date)
+        # Fall back to Tavily agent search
+        user_message = (
+            f"Find the best sports activities, stadiums, and live sport events in {city} "
+            f"for a traveler visiting from {start_date} to {end_date}. "
+            f"Highlight anything happening during that specific period."
+        )
+        text = await run_agent_loop(SYSTEM_PROMPT, user_message)
+        start, end = text.find("["), text.rfind("]")
+        attractions = []
+        if start != -1 and end != -1:
+            try:
+                attractions = [Attraction(**a) for a in json.loads(text[start:end + 1])]
+            except Exception:
+                pass
 
     if attractions:
         await set_cached(key, [a.to_dict() for a in attractions])

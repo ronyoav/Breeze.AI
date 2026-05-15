@@ -15,32 +15,55 @@ async def generate_itinerary(
     composition: str,
     budget: str,
     interests: list[str],
+    scheduling_rejections: str = None,
 ) -> dict:
     # Step 1: fetch attractions (async, parallel sub-agents)
-    pool = await run_attraction_manager(
-        city=city,
-        budget=budget,
-        composition=composition,
-        interests=interests,
-        start_date=start_date,
-        end_date=end_date,
-        days=days,
-    )
+    input_data = {
+        "location": {"city": city},
+        "budget": budget,
+        "groupStructure": composition,
+        "interests": interests,
+        "dates": {"start": start_date, "end": end_date},
+        "daysNumber": days,
+        "departure": departure
+    }
+    
+    pool = await run_attraction_manager(input_data)
 
-    # Step 2: schedule into days (sync Haiku call)
-    schedule = run_scheduler(
+    # Step 2: schedule into days (async Haiku call)
+    schedule = await run_scheduler(
         city=city,
         days=days,
         start_date=start_date,
         attraction_pool=pool,
+        scheduling_rejections=scheduling_rejections
     )
 
-    # Build lookup map
-    pool_map = {a.id: a.to_dict() for a in pool}
-    scheduled = [
-        {**day, "attractions": [pool_map[i] for i in day.get("attraction_ids", []) if i in pool_map]}
-        for day in schedule
-    ]
+    # Build lookup map from the nested pool structure: [{"type": "history", "results": [...]}, ...]
+    pool_map = {}
+    for category in pool:
+        for attr in category.get("results", []):
+            pool_map[attr.get("id")] = attr
+
+    scheduled = []
+    for day in schedule:
+        mapped_items = []
+        for item in day.get("scheduled_items", []):
+            item_id = item.get("id")
+            if item_id in pool_map:
+                # Merge the schedule timing info with the full attraction object
+                mapped_items.append({
+                    "time": item.get("time"),
+                    "duration": item.get("duration"),
+                    "category": pool_map[item_id].get("category"),
+                    "attractionObj": pool_map[item_id]
+                })
+        scheduled.append({
+            "day": day.get("day"),
+            "date": day.get("date"),
+            "theme": day.get("theme"),
+            "attractions": mapped_items
+        })
 
     # Step 3: Orchestrator builds final narrative (Sonnet)
     message = client.messages.create(
@@ -82,7 +105,9 @@ def refine_feedback(feedback: str, current_itinerary: dict) -> dict:
     return json.loads(match) if match else current_itinerary
 
 
-def _extract_json_object(text: str) -> str | None:
+from typing import Optional
+
+def _extract_json_object(text: str) -> Optional[str]:
     start = text.find("{")
     end = text.rfind("}")
     if start != -1 and end != -1:
