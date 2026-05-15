@@ -133,12 +133,20 @@ User
    npm install
    ```
 
-3. **Run the development server**
+3. **Start the backend** (in a separate terminal, from the `backend/` folder)
+   ```bash
+   cd backend
+   uvicorn main:app --reload
+   ```
+   Runs on [http://localhost:8000](http://localhost:8000)
+
+4. **Start the frontend** (from the project root)
    ```bash
    npm run dev
    ```
+   Runs on [http://localhost:3000](http://localhost:3000)
 
-4. **Open the app**  
+5. **Open the app**  
    Visit [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---

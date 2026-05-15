@@ -1,6 +1,11 @@
 from __future__ import annotations
+import hashlib
 from dataclasses import dataclass, field
 from typing import Optional
+
+
+def make_attraction_id(city: str, name: str) -> str:
+    return hashlib.md5(f"{city}:{name}".encode()).hexdigest()[:12]
 
 
 @dataclass

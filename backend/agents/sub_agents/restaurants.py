@@ -1,6 +1,6 @@
 import json
 from utils.agent_loop import run_agent_loop
-from utils.parsers import Attraction
+from utils.parsers import Attraction, make_attraction_id
 from cache.redis import get_cached, set_cached, attraction_cache_key
 from langsmith import traceable
 from utils.llm import build_subagent_prompt, extract_json_object
@@ -70,8 +70,8 @@ async def fetch_restaurants(user_profile: dict) -> list[Attraction]:
             parsed_list = parsed_data.get("results", [])
             for item in parsed_list:
                 item["category"] = "restaurants"
-                if "id" not in item:
-                    item["id"] = "generated_id"
+                if "id" not in item or item.get("id") == "generated_id":
+                    item["id"] = make_attraction_id(city, item.get("name", ""))
                 attractions.append(Attraction(**item))
         except Exception:
             pass

@@ -104,23 +104,31 @@ async def generate_itinerary(
         scheduling_rejections=scheduling_rejections if scheduling_rejections else None
     )
 
-    # 4. Map the IDs to the full objects
-    pool_map = {}
+    # 4. Map the IDs to the full objects (fall back to name-match when all IDs are "generated_id")
+    pool_map_by_id: dict = {}
+    pool_map_by_name: dict = {}
     for category in pool:
         for attr in category.get("results", []):
-            pool_map[attr.get("id")] = attr
+            attr_id = attr.get("id", "")
+            attr_name = attr.get("name", "")
+            if attr_id and attr_id != "generated_id":
+                pool_map_by_id[attr_id] = attr
+            if attr_name:
+                pool_map_by_name[attr_name] = attr
 
     scheduled = []
     for day in schedule:
         mapped_items = []
         for item in day.get("scheduled_items", []):
-            item_id = item.get("id")
-            if item_id in pool_map:
+            item_id = item.get("id", "")
+            item_name = item.get("name", "")
+            matched = pool_map_by_id.get(item_id) or pool_map_by_name.get(item_name)
+            if matched:
                 mapped_items.append({
                     "time": item.get("time"),
                     "duration": item.get("duration"),
-                    "category": pool_map[item_id].get("category"),
-                    "attractionObj": pool_map[item_id]
+                    "category": matched.get("category"),
+                    "attractionObj": matched
                 })
         scheduled.append({
             "day": day.get("day"),
