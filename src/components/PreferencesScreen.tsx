@@ -14,7 +14,6 @@ const INTEREST_OPTIONS = [
   { id: "spa", label: "Spa & Wellness", sub: "Slow mornings, hammam" },
   { id: "music", label: "Music & Festivals", sub: "Concerts, fado, DJs" },
   { id: "shopping", label: "Shopping", sub: "Markets, boutiques, design" },
-  { id: "viral", label: "Viral Spots", sub: "The places everyone tags" },
 ];
 
 function InterestCard({
@@ -98,16 +97,56 @@ interface Props {
 }
 
 export default function PreferencesScreen({ value, onChange, onAdvance, onBack, dark, onToggle }: Props) {
-  const [sel, setSel] = useState(new Set(value || []));
+  const [sel, setSel] = useState(new Set(value.filter((v) => INTEREST_OPTIONS.some((o) => o.id === v))));
+  // Custom "Other" free-text interests
+  const [customInterests, setCustomInterests] = useState<string[]>(
+    () => value.filter((v) => !INTEREST_OPTIONS.some((o) => o.id === v))
+  );
+  const [showOther, setShowOther] = useState(() =>
+    value.some((v) => !INTEREST_OPTIONS.some((o) => o.id === v))
+  );
+
+  const buildFinalList = (newSel: Set<string>, newCustom: string[]) => {
+    const presets = Array.from(newSel);
+    const customs = newCustom.filter((c) => c.trim());
+    return [...presets, ...customs];
+  };
 
   const toggle = (id: string) => {
     const next = new Set(sel);
     next.has(id) ? next.delete(id) : next.add(id);
     setSel(next);
-    onChange(Array.from(next));
+    onChange(buildFinalList(next, customInterests));
   };
 
-  const count = sel.size;
+  const toggleOther = () => {
+    const next = !showOther;
+    setShowOther(next);
+    if (!next) {
+      setCustomInterests([]);
+      onChange(buildFinalList(sel, []));
+    } else if (customInterests.length === 0) {
+      setCustomInterests([""]);
+    }
+  };
+
+  const updateCustom = (i: number, val: string) => {
+    const next = [...customInterests];
+    next[i] = val;
+    // Auto-add a new empty field when user starts typing in the last one
+    if (i === next.length - 1 && val.trim()) next.push("");
+    setCustomInterests(next);
+    onChange(buildFinalList(sel, next));
+  };
+
+  const removeCustom = (i: number) => {
+    const next = customInterests.filter((_, idx) => idx !== i);
+    if (next.length === 0) next.push("");
+    setCustomInterests(next);
+    onChange(buildFinalList(sel, next));
+  };
+
+  const count = sel.size + customInterests.filter((c) => c.trim()).length;
 
   return (
     <div
@@ -202,6 +241,7 @@ export default function PreferencesScreen({ value, onChange, onAdvance, onBack, 
           </p>
         </div>
 
+        {/* Preset interest grid */}
         <div
           style={{
             display: "grid",
@@ -212,7 +252,56 @@ export default function PreferencesScreen({ value, onChange, onAdvance, onBack, 
           {INTEREST_OPTIONS.map((o) => (
             <InterestCard key={o.id} option={o} active={sel.has(o.id)} onClick={() => toggle(o.id)} />
           ))}
+
+          {/* "Other" card */}
+          <InterestCard
+            option={{ id: "other", label: "Other", sub: "Your own interests — type below" }}
+            active={showOther}
+            onClick={toggleOther}
+          />
         </div>
+
+        {/* Other free-text inputs */}
+        {showOther && (
+          <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10, maxWidth: 560 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--accent-deep)", letterSpacing: ".06em", textTransform: "uppercase" }}>
+              Describe your interests
+            </div>
+            {customInterests.map((val, i) => (
+              <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  value={val}
+                  onChange={(e) => updateCustom(i, e.target.value)}
+                  placeholder={i === 0 ? "e.g. Photography, Architecture, Street art…" : "Add another…"}
+                  autoFocus={i === 0 && !val}
+                  style={{
+                    flex: 1,
+                    padding: "12px 16px",
+                    fontSize: 16,
+                    background: "var(--bg-2)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--r-l)",
+                    outline: "none",
+                    color: "var(--text)",
+                    fontFamily: "inherit",
+                  }}
+                />
+                {customInterests.length > 1 && (
+                  <button
+                    onClick={() => removeCustom(i)}
+                    style={{
+                      background: "transparent", border: "1px solid var(--border)",
+                      borderRadius: "var(--r)", padding: "10px", cursor: "pointer",
+                      display: "flex", alignItems: "center", color: "var(--text-3)",
+                    }}
+                  >
+                    <Icon name="x" size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         <div
           style={{

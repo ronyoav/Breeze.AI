@@ -38,7 +38,8 @@ function getTrueDate(startDate: string, dayIndex: number): string {
   return d.toLocaleDateString("en-US", { weekday: "short", year: "numeric", month: "short", day: "numeric" });
 }
 
-function buildAgeContext(ages: string | undefined, composition: string): string {
+function buildAgeContext(travelers: { age: string; gender: string }[] | undefined, composition: string): string {
+  const ages = travelers?.map((t) => t.age).filter(Boolean).join(", ");
   const agesNote = ages ? ` (ages: ${ages})` : "";
 
   if (composition === "family") {
@@ -80,7 +81,7 @@ function buildAgeContext(ages: string | undefined, composition: string): string 
 
   if (composition === "friends") {
     // Parse rough age range if available
-    const avgAge = ages ? extractAverageAge(ages) : null;
+    const avgAge = ages ? extractAverageAge(ages as string) : null;
     if (avgAge !== null && avgAge >= 50) {
       return `Group of friends${agesNote} (mature travelers):
 - Choose comfortable, scenic activities over high-intensity ones.
@@ -124,11 +125,12 @@ function buildSchedulePrompt(params: {
   composition: string;
   budget: string;
   interests: string[];
-  ages?: string;
+  travelers?: { age: string; gender: string }[];
   userRequest?: string;
 }): string {
   const month = getMonthName(params.startDate);
-  const ageContext = buildAgeContext(params.ages, params.composition);
+  const ageContext = buildAgeContext(params.travelers, params.composition);
+  const ages = params.travelers?.map((t) => t.age).filter(Boolean).join(", ");
   const userSection = params.userRequest
     ? `\nHIGHEST PRIORITY — apply this before all other rules:\n"${params.userRequest}"\n`
     : "";
@@ -140,7 +142,7 @@ function buildSchedulePrompt(params: {
 TRIP
 Destination: ${params.city} | ${params.days} days
 Dates: ${dateList}
-Travelers: ${params.composition}${params.ages ? ` · ages ${params.ages}` : ""}
+Travelers: ${params.composition}${ages ? ` · ages ${ages}` : ""}
 Budget: ${params.budget} (budget→free/cheap · comfort→mid-range · luxury→premium)
 Interests: ${params.interests.join(", ")}
 
@@ -170,7 +172,7 @@ ${JSON.stringify(params.items)}`;
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { items, city, days, startDate, composition, budget, interests, ages, userRequest } = body;
+    const { items, city, days, startDate, composition, budget, interests, travelers, userRequest } = body;
 
     const llmKey = process.env.API_KEY_LLM;
     if (!llmKey) return NextResponse.json({ days: [] }, { status: 500 });
@@ -181,7 +183,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: "anthropic/claude-3-5-haiku",
         max_tokens: 8192,
-        messages: [{ role: "user", content: buildSchedulePrompt({ items, city, days, startDate, composition, budget, interests, ages, userRequest }) }],
+        messages: [{ role: "user", content: buildSchedulePrompt({ items, city, days, startDate, composition, budget, interests, travelers, userRequest }) }],
       }),
     });
 
