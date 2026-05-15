@@ -1,7 +1,7 @@
 import json
 import httpx
 from langsmith import traceable
-from utils.api_clients import OVERPASS_BASE
+from utils.api_clients import OVERPASS_BASE, tavily_search
 from utils.parsers import Attraction
 from cache.redis import get_cached, set_cached, attraction_cache_key
 from typing import Optional
@@ -74,7 +74,28 @@ async def fetch_shopping(user_profile: dict) -> list[Attraction]:
         except Exception:
             pass
 
+    if not attractions:
+        attractions = await _tavily_fallback(city, budget_num)
+
     if attractions:
         await set_cached(key, [a.to_dict() for a in attractions])
-        
+
+    return attractions
+
+
+async def _tavily_fallback(city: str, budget_num: int) -> list[Attraction]:
+    query = f"luxury boutiques jewelry shopping {city}" if budget_num == 3 else f"best shopping malls markets {city}"
+    try:
+        result = await tavily_search(query, 6)
+    except Exception:
+        return []
+    attractions = []
+    for i, r in enumerate(result.get("results", [])):
+        attractions.append(Attraction(
+            id=f"tavily-shopping-{i}",
+            name=r.get("title", "").split(" - ")[0].strip(),
+            category="shopping",
+            description=str(r.get("content", r.get("snippet", "")))[:200],
+            url=r.get("url", ""),
+        ))
     return attractions
