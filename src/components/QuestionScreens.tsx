@@ -156,6 +156,63 @@ function QuestionShell({
   );
 }
 
+// ---------- Q0: Name --------------------------------------------------
+interface Q0Props {
+  value: string;
+  onChange: (v: string) => void;
+  onAdvance: () => void;
+  onBack: () => void;
+  stepIdx: number;
+  total: number;
+  dark: boolean;
+  onToggle: () => void;
+}
+
+export function Q_Name({ value, onChange, onAdvance, onBack, stepIdx, total, dark, onToggle }: Q0Props) {
+  const [name, setName] = useState(value || "");
+
+  const submit = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onChange(trimmed);
+    onAdvance();
+  };
+
+  return (
+    <QuestionShell
+      stepIdx={stepIdx}
+      total={total}
+      kicker="Question 01"
+      title={<>What&apos;s your <span className="serif">name?</span></>}
+      nextDisabled={!name.trim()}
+      onNext={submit}
+      onBack={onBack}
+      dark={dark}
+      onToggle={onToggle}
+    >
+      <div style={{ maxWidth: 480 }}>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) submit(); }}
+          placeholder="e.g. Alex"
+          autoFocus
+          style={{
+            width: "100%", padding: "18px 24px", fontSize: 28, fontWeight: 500,
+            letterSpacing: "-.02em", background: "var(--bg-2)",
+            border: "1px solid var(--border)", borderRadius: "var(--r-l)",
+            outline: "none", color: "var(--text)", fontFamily: "inherit",
+            boxSizing: "border-box",
+          }}
+        />
+        <p style={{ margin: "12px 0 0", fontSize: 13, color: "var(--text-3)" }}>
+          We&apos;ll use your name to personalise your itinerary
+        </p>
+      </div>
+    </QuestionShell>
+  );
+}
+
 // ---------- Q1: Destination -------------------------------------------
 const KNOWN_CITIES = [
   "Rome","Milan","Venice","Florence","Naples","Amalfi Coast","Paris","Lyon","Nice","Marseille",
@@ -365,7 +422,7 @@ const COORDINATE_MAP: Record<string, [number, number]> = {
 
 interface Q1Props {
   value: string;
-  onChange: (v: string) => void;
+  onChange: (city: string, country: string) => void;
   onAdvance: () => void;
   onBack: () => void;
   stepIdx: number;
@@ -376,6 +433,7 @@ interface Q1Props {
 
 export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total, dark, onToggle }: Q1Props) {
   const [confirmed, setConfirmed] = useState(value || "");
+  const [country, setCountry] = useState("");
   const [inputVal, setInputVal] = useState(value || "");
   const [suggestions, setSuggestions] = useState<{ name: string; subtitle?: string }[]>([]);
   const [focused, setFocused] = useState(false);
@@ -418,26 +476,46 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
     return () => clearTimeout(t);
   }, [inputVal, confirmed]);
 
-  const confirmCity = (name: string) => {
+  const confirmCity = (name: string, detectedCountry?: string) => {
     const trimmed = toTitleCase(name.trim());
     if (!trimmed) return;
     setConfirmed(trimmed);
     setInputVal(trimmed);
-    onChange(trimmed);
+    const c = detectedCountry || country;
+    onChange(trimmed, c);
     setSuggestions([]);
   };
 
+  // Fetch country from Nominatim after city is confirmed
+  useEffect(() => {
+    if (!confirmed) { setCountry(""); return; }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(confirmed)}&format=json&limit=1&addressdetails=1`,
+          { headers: { "User-Agent": "Breeze.AI" } }
+        );
+        const data = await res.json();
+        const c: string = data?.[0]?.address?.country ?? "";
+        if (c) { setCountry(c); onChange(confirmed, c); }
+      } catch { /* keep empty */ }
+    }, 400);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmed]);
+
   const clearCity = () => {
     setConfirmed("");
+    setCountry("");
     setInputVal("");
-    onChange("");
+    onChange("", "");
     setSuggestions([]);
   };
 
   const submit = () => {
     const city = confirmed || toTitleCase(inputVal.trim());
     if (!city) return;
-    onChange(city);
+    onChange(city, country);
     onAdvance();
   };
 
@@ -499,7 +577,7 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
               onKeyDown={e => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  if (suggestions.length > 0) confirmCity(suggestions[0].name);
+                  if (suggestions.length > 0) confirmCity(suggestions[0].name, suggestions[0].subtitle);
                   else if (inputVal.trim()) confirmCity(inputVal);
                 }
               }}
@@ -526,7 +604,7 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
                 {suggestions.map((s, i) => (
                   <button
                     key={i}
-                    onMouseDown={() => confirmCity(s.name)}
+                    onMouseDown={() => confirmCity(s.name, s.subtitle)}
                     style={{
                       display: "flex", alignItems: "center", justifyContent: "space-between",
                       width: "100%", padding: "13px 20px", textAlign: "left",

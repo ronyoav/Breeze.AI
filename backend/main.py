@@ -1,11 +1,12 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from agents.orchestrator import generate_itinerary, refine_feedback
+from agents.orchestrator import generate_itinerary
 
 app = FastAPI(title="Breeze.ai Backend")
 
@@ -18,43 +19,20 @@ app.add_middleware(
 
 
 class GenerateRequest(BaseModel):
-    city: str
-    departure: str
-    start_date: str
-    end_date: str
-    days: int
-    composition: str
-    budget: str
-    interests: list[str]
-
-
-class RefineRequest(BaseModel):
-    feedback: str
-    current_itinerary: dict
+    input_data: dict
+    user_rejections: Optional[str] = None
+    previous_pool: Optional[list] = None
 
 
 @app.post("/generate")
 async def generate(req: GenerateRequest):
     try:
-        itinerary = await generate_itinerary(
-            city=req.city,
-            departure=req.departure,
-            start_date=req.start_date,
-            end_date=req.end_date,
-            days=req.days,
-            composition=req.composition,
-            budget=req.budget,
-            interests=req.interests,
+        result = await generate_itinerary(
+            input_data=req.input_data,
+            user_rejections=req.user_rejections,
+            previous_pool=req.previous_pool,
         )
-        return itinerary
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/refine")
-def refine(req: RefineRequest):
-    try:
-        return refine_feedback(req.feedback, req.current_itinerary)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

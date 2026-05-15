@@ -2,41 +2,44 @@
 
 import { useState } from "react";
 import { IconBtn, Icon, Wordmark } from "./ui";
-import type { TripAnswers, GeneratedItinerary, ItineraryDay, ItinerarySlot } from "./types";
+import type { TripAnswers, GeneratedItinerary, OrchestratorDay, OrchestratorActivity } from "./types";
 
+const FALLBACK_IMAGE = "/fallback.jpg";
+
+const BUDGET_MAP: Record<string, number> = { budget: 1, comfort: 2, luxury: 3 };
+
+function buildInputData(answers: TripAnswers): Record<string, unknown> {
+  const groupStructure: Record<string, { gender: string; age: number }> = {};
+  answers.travelers.forEach((t, i) => {
+    groupStructure[String(i + 1)] = { gender: t.gender || "other", age: parseInt(t.age) || 0 };
+  });
+  return {
+    userName: answers.userName || "Traveler",
+    groupRelation: answers.composition ?? "solo",
+    groupStructure,
+    budget: BUDGET_MAP[answers.budget] ?? 2,
+    dates: { start: answers.dates.start, end: answers.dates.end },
+    daysNumber: answers.dates.days,
+    location: { country: answers.country || "", city: answers.destination },
+    accessibility: false,
+    interests: answers.interests,
+  };
+}
 
 function parseLocal(dStr: string): Date {
   const match = dStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (match) {
-    return new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10));
-  }
-  
-  if (!/\d{4}/.test(dStr)) {
-    const now = new Date();
-    const attempt = new Date(`${dStr} ${now.getFullYear()}`);
-    if (!isNaN(attempt.getTime())) {
-      const attemptVal = attempt.getMonth() * 100 + attempt.getDate();
-      const nowVal = now.getMonth() * 100 + now.getDate();
-      if (attemptVal < nowVal) {
-        attempt.setFullYear(now.getFullYear() + 1);
-      }
-      return attempt;
-    }
-  }
-
+  if (match) return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
   const d = new Date(dStr);
   return isNaN(d.getTime()) ? new Date() : d;
 }
 
 function fmtDisplay(d: string): string {
-  const parsed = parseLocal(d);
-  return parsed.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  return parseLocal(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
 function getTrueDate(startDate: string, dayIndex: number): string {
   const d = parseLocal(startDate);
-  const offset = isNaN(dayIndex) ? 0 : dayIndex;
-  d.setDate(d.getDate() + offset);
+  d.setDate(d.getDate() + (isNaN(dayIndex) ? 0 : dayIndex));
   return d.toLocaleDateString("en-US", { weekday: "short", year: "numeric", month: "short", day: "numeric" });
 }
 
@@ -52,27 +55,28 @@ const CATEGORY_META: Record<string, { icon: string; color: string; label: string
   beach:       { icon: "sun",      color: "#1FB8C4", label: "Beach" },
   spa:         { icon: "heart",    color: "#CF5BA0", label: "Spa" },
   shopping:    { icon: "bag",      color: "#E06822", label: "Shopping" },
-  viral:       { icon: "sparkle",  color: "#9940C8", label: "Viral Spot" },
 };
 
 function getCategoryMeta(category: string) {
   return CATEGORY_META[category] ?? { icon: "star", color: "var(--accent-deep)", label: category };
 }
 
-// ---------- Slot card --------------------------------------------------
-function SlotCard({ slot, isLast }: { slot: ItinerarySlot; isLast: boolean }) {
+// ---------- Activity card ----------------------------------------------
+function ActivityCard({ activity, isLast }: { activity: OrchestratorActivity; isLast: boolean }) {
   const [hover, setHover] = useState(false);
-  const meta = getCategoryMeta(slot.category);
+  const [imgError, setImgError] = useState(false);
+  const meta = getCategoryMeta(activity.category);
+  const imgSrc = (!activity.imageurl || imgError) ? FALLBACK_IMAGE : activity.imageurl;
 
   return (
     <div style={{ display: "flex", gap: 0, position: "relative" }}>
       {/* Time + timeline */}
       <div style={{ width: 68, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", paddingRight: 16, paddingTop: 2 }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-3)", fontVariantNumeric: "tabular-nums", letterSpacing: ".02em" }}>
-          {slot.time}
+          {activity.time}
         </span>
-        {slot.duration && (
-          <span style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>{slot.duration}</span>
+        {activity.duration && (
+          <span style={{ fontSize: 10, color: "var(--text-3)", marginTop: 2 }}>{activity.duration}</span>
         )}
       </div>
 
@@ -80,13 +84,10 @@ function SlotCard({ slot, isLast }: { slot: ItinerarySlot; isLast: boolean }) {
       <div style={{ width: 24, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 4 }}>
         <div style={{
           width: 12, height: 12, borderRadius: 999, flexShrink: 0,
-          background: meta.color,
-          border: `2.5px solid ${meta.color}`,
+          background: meta.color, border: `2.5px solid ${meta.color}`,
           boxShadow: `0 0 0 3px ${meta.color}22`,
         }} />
-        {!isLast && (
-          <div style={{ width: 2, flex: 1, background: "var(--border)", marginTop: 6, minHeight: 40 }} />
-        )}
+        {!isLast && <div style={{ width: 2, flex: 1, background: "var(--border)", marginTop: 6, minHeight: 40 }} />}
       </div>
 
       {/* Card */}
@@ -94,71 +95,78 @@ function SlotCard({ slot, isLast }: { slot: ItinerarySlot; isLast: boolean }) {
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         style={{
-          flex: 1,
-          marginLeft: 16,
-          marginBottom: isLast ? 0 : 20,
-          padding: "16px 20px",
+          flex: 1, marginLeft: 16, marginBottom: isLast ? 0 : 20,
           background: hover ? "var(--bg-3)" : "var(--bg-2)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--r-l)",
+          border: "1px solid var(--border)", borderRadius: "var(--r-l)",
           transition: "all .25s var(--ease)",
           transform: hover ? "translateY(-1px)" : "none",
           boxShadow: hover ? "0 8px 20px rgba(10,27,46,.07)" : "none",
+          overflow: "hidden",
         }}
       >
-        {/* Header row */}
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-            background: `${meta.color}18`,
-            display: "flex", alignItems: "center", justifyContent: "center",
+        {/* Image */}
+        <div style={{ height: 180, overflow: "hidden", position: "relative" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={imgSrc}
+            alt={activity.title}
+            onError={() => setImgError(true)}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+          {/* Category badge over image */}
+          <span style={{
+            position: "absolute", top: 10, left: 10,
+            fontSize: 10, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase",
+            padding: "3px 10px", borderRadius: 999,
+            background: `${meta.color}dd`, color: "#fff",
           }}>
-            <Icon name={meta.icon} size={14} stroke={meta.color} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-.01em" }}>
-                {slot.title}
-              </span>
-              <span style={{
-                fontSize: 10, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase",
-                padding: "2px 8px", borderRadius: 999,
-                background: `${meta.color}18`,
-                color: meta.color,
-                border: `1px solid ${meta.color}40`,
-              }}>
-                {meta.label}
-              </span>
-              {slot.price && (
-                <span style={{ fontSize: 11, color: "var(--text-3)" }}>{slot.price}</span>
-              )}
-            </div>
-          </div>
+            {meta.label}
+          </span>
         </div>
 
-        {/* Description */}
-        {slot.description && (
-          <p style={{ margin: "0 0 8px 38px", fontSize: 13, lineHeight: 1.6, color: "var(--text-2)" }}>
-            {slot.description}
-          </p>
-        )}
-
-        {/* Address + tip */}
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginLeft: 38 }}>
-          {slot.address && (
-            <span style={{ fontSize: 12, color: "var(--text-3)", display: "flex", alignItems: "center", gap: 4 }}>
-              <Icon name="pin" size={11} stroke="var(--text-3)" />{slot.address}
-            </span>
-          )}
-          {slot.tip && (
-            <span style={{
-              fontSize: 12, color: "var(--accent-deep)",
-              background: "var(--accent-soft)", border: "1px solid var(--accent)",
-              padding: "2px 9px", borderRadius: 999,
+        <div style={{ padding: "16px 20px" }}>
+          {/* Title row */}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
+            <div style={{
+              width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+              background: `${meta.color}18`, display: "flex", alignItems: "center", justifyContent: "center",
             }}>
-              {slot.tip}
-            </span>
+              <Icon name={meta.icon} size={14} stroke={meta.color} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-.01em" }}>{activity.title}</span>
+                {activity.price && (
+                  <span style={{ fontSize: 11, color: "var(--text-3)" }}>{activity.price}</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Description */}
+          {activity.description && (
+            <p style={{ margin: "0 0 8px 38px", fontSize: 13, lineHeight: 1.6, color: "var(--text-2)" }}>
+              {activity.description}
+            </p>
           )}
+
+          {/* Address + tip */}
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginLeft: 38 }}>
+            {activity.address && (
+              <span style={{ fontSize: 12, color: "var(--text-3)", display: "flex", alignItems: "center", gap: 4 }}>
+                <Icon name="pin" size={11} stroke="var(--text-3)" />{activity.address}
+              </span>
+            )}
+            {activity.tip && (
+              <span style={{
+                fontSize: 12, color: "var(--accent-deep)",
+                background: "var(--accent-soft)", border: "1px solid var(--accent)",
+                padding: "2px 9px", borderRadius: 999,
+              }}>
+                {activity.tip}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -166,8 +174,9 @@ function SlotCard({ slot, isLast }: { slot: ItinerarySlot; isLast: boolean }) {
 }
 
 // ---------- Day view --------------------------------------------------
-function DayView({ day, startDate }: { day: ItineraryDay; startDate: string }) {
+function DayView({ day, startDate }: { day: OrchestratorDay; startDate: string }) {
   const trueDate = getTrueDate(startDate, (day.day || 1) - 1);
+  const activities = day.activities ?? [];
   return (
     <div>
       <div style={{ marginBottom: 28 }}>
@@ -175,14 +184,16 @@ function DayView({ day, startDate }: { day: ItineraryDay; startDate: string }) {
           Day {day.day}
         </div>
         <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-.02em" }}>{trueDate}</div>
-        {day.theme && (
-          <div style={{ fontSize: 14, color: "var(--text-3)", marginTop: 4, fontStyle: "italic" }}>{day.theme}</div>
+        {day.title && (
+          <div style={{ fontSize: 18, fontWeight: 500, color: "var(--accent-deep)", marginTop: 4 }}>{day.title}</div>
+        )}
+        {day.summary && (
+          <div style={{ fontSize: 14, color: "var(--text-3)", marginTop: 6, lineHeight: 1.5 }}>{day.summary}</div>
         )}
       </div>
-
       <div>
-        {day.slots.map((slot, i) => (
-          <SlotCard key={`${slot.time}-${i}`} slot={slot} isLast={i === day.slots.length - 1} />
+        {activities.map((a, i) => (
+          <ActivityCard key={`${a.time}-${i}`} activity={a} isLast={i === activities.length - 1} />
         ))}
       </div>
     </div>
@@ -190,29 +201,25 @@ function DayView({ day, startDate }: { day: ItineraryDay; startDate: string }) {
 }
 
 // ---------- Day tabs --------------------------------------------------
-function DayTabs({ days, activeDay, onSelect, startDate }: { days: ItineraryDay[]; activeDay: number; onSelect: (d: number) => void; startDate: string }) {
+function DayTabs({ days, activeDay, onSelect, startDate }: {
+  days: OrchestratorDay[]; activeDay: number; onSelect: (d: number) => void; startDate: string;
+}) {
   return (
     <div style={{
       display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4,
-      scrollbarWidth: "none", msOverflowStyle: "none",
-      marginBottom: 40,
+      scrollbarWidth: "none", msOverflowStyle: "none", marginBottom: 40,
     }}>
       {days.map((day) => {
         const active = day.day === activeDay;
         const trueDate = getTrueDate(startDate, (day.day || 1) - 1);
         return (
-          <button
-            key={day.day}
-            onClick={() => onSelect(day.day)}
-            style={{
-              padding: "10px 18px", borderRadius: "var(--r)", flexShrink: 0,
-              background: active ? "var(--ink)" : "var(--bg-2)",
-              border: `1px solid ${active ? "var(--ink)" : "var(--border)"}`,
-              color: active ? "#fff" : "var(--text-2)",
-              cursor: "pointer", fontFamily: "inherit",
-              transition: "all .2s var(--ease)",
-            }}
-          >
+          <button key={day.day} onClick={() => onSelect(day.day)} style={{
+            padding: "10px 18px", borderRadius: "var(--r)", flexShrink: 0,
+            background: active ? "var(--ink)" : "var(--bg-2)",
+            border: `1px solid ${active ? "var(--ink)" : "var(--border)"}`,
+            color: active ? "#fff" : "var(--text-2)",
+            cursor: "pointer", fontFamily: "inherit", transition: "all .2s var(--ease)",
+          }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", opacity: active ? 0.7 : 0.6 }}>
               Day {day.day}
             </div>
@@ -228,24 +235,20 @@ function DayTabs({ days, activeDay, onSelect, startDate }: { days: ItineraryDay[
 function SmallActionBtn({ icon, label, onClick }: { icon: string; label: string; onClick?: () => void }) {
   const [hover, setHover] = useState(false);
   return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px 9px 12px",
-        borderRadius: 999, background: hover ? "var(--bg-2)" : "transparent",
-        border: "1px solid var(--border)", color: "var(--text-2)", fontSize: 13, fontWeight: 500,
-        transition: "background .25s var(--ease)", fontFamily: "inherit", cursor: "pointer",
-      }}
-    >
-      <Icon name={icon} size={16} />
-      {label}
+    <button onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={{
+      display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px 9px 12px",
+      borderRadius: 999, background: hover ? "var(--bg-2)" : "transparent",
+      border: "1px solid var(--border)", color: "var(--text-2)", fontSize: 13, fontWeight: 500,
+      transition: "background .25s var(--ease)", fontFamily: "inherit", cursor: "pointer",
+    }}>
+      <Icon name={icon} size={16} />{label}
     </button>
   );
 }
 
-function ItineraryTopBar({ answers, dark, onToggle, onRestart }: { answers: TripAnswers; dark: boolean; onToggle: () => void; onRestart: () => void }) {
+function ItineraryTopBar({ answers, dark, onToggle, onRestart }: {
+  answers: TripAnswers; dark: boolean; onToggle: () => void; onRestart: () => void;
+}) {
   return (
     <header style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50, background: "var(--bg)", borderBottom: "1px solid var(--border)", padding: "14px 40px", display: "flex", alignItems: "center", justifyContent: "space-between", backdropFilter: "blur(10px)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
@@ -286,19 +289,20 @@ const INTEREST_META: Record<string, { label: string; icon: string }> = {
   beach:       { label: "Beach & Resorts", icon: "sun" },
   spa:         { label: "Spa & Wellness", icon: "heart" },
   shopping:    { label: "Shopping", icon: "bag" },
-  viral:       { label: "Viral Spots", icon: "sparkle" },
 };
 
 function TripSidebar({ answers, days, activeDay, onSelectDay }: {
-  answers: TripAnswers;
-  days: ItineraryDay[];
-  activeDay: number;
-  onSelectDay: (d: number) => void;
+  answers: TripAnswers; days: OrchestratorDay[]; activeDay: number; onSelectDay: (d: number) => void;
 }) {
   const comp = answers.composition === "couple" ? "Couple" : answers.composition === "solo" ? "Solo" : answers.composition === "family" ? "Family" : "Friends";
   return (
     <aside style={{ borderRight: "1px solid var(--border)", padding: "28px 18px", position: "sticky", top: 78, alignSelf: "flex-start", height: "calc(100vh - 78px)", overflowY: "auto" }}>
       <div style={{ padding: "16px 14px", background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r)", marginBottom: 20 }}>
+        {answers.userName && (
+          <div style={{ fontSize: 13, color: "var(--accent-deep)", fontWeight: 600, marginBottom: 6 }}>
+            Hey, {answers.userName} 👋
+          </div>
+        )}
         <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-.01em", marginBottom: 10 }}>{answers.destination}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-2)" }}>
@@ -321,25 +325,21 @@ function TripSidebar({ answers, days, activeDay, onSelectDay }: {
       {/* Day nav */}
       {days.length > 0 && (
         <>
-          <div style={{ fontSize: 10, color: "var(--text-3)", letterSpacing: ".15em", textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>
-            Days
-          </div>
+          <div style={{ fontSize: 10, color: "var(--text-3)", letterSpacing: ".15em", textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>Days</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 20 }}>
             {days.map((day) => (
-              <button
-                key={day.day}
-                onClick={() => onSelectDay(day.day)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
-                  borderRadius: "var(--r)", background: activeDay === day.day ? "var(--ink)" : "transparent",
-                  border: `1px solid ${activeDay === day.day ? "var(--ink)" : "transparent"}`,
-                  color: activeDay === day.day ? "#fff" : "var(--text-2)",
-                  fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
-                  transition: "all .2s var(--ease)", textAlign: "left",
-                }}
-              >
+              <button key={day.day} onClick={() => onSelectDay(day.day)} style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
+                borderRadius: "var(--r)", background: activeDay === day.day ? "var(--ink)" : "transparent",
+                border: `1px solid ${activeDay === day.day ? "var(--ink)" : "transparent"}`,
+                color: activeDay === day.day ? "#fff" : "var(--text-2)",
+                fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
+                transition: "all .2s var(--ease)", textAlign: "left",
+              }}>
                 <span style={{ fontSize: 10, fontWeight: 700, opacity: 0.6, width: 32, flexShrink: 0 }}>Day {day.day}</span>
-                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12 }}>{getTrueDate(answers.dates.start, (day.day || 1) - 1)}</span>
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12 }}>
+                  {getTrueDate(answers.dates.start, (day.day || 1) - 1)}
+                </span>
               </button>
             ))}
           </div>
@@ -347,9 +347,7 @@ function TripSidebar({ answers, days, activeDay, onSelectDay }: {
       )}
 
       {/* Interests legend */}
-      <div style={{ fontSize: 10, color: "var(--text-3)", letterSpacing: ".15em", textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>
-        Interests
-      </div>
+      <div style={{ fontSize: 10, color: "var(--text-3)", letterSpacing: ".15em", textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>Interests</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
         {answers.interests.map((id) => {
           const meta = INTEREST_META[id];
@@ -366,19 +364,14 @@ function TripSidebar({ answers, days, activeDay, onSelectDay }: {
   );
 }
 
-// ---------- Inline revise panel ---------------------------------------
+// ---------- Revise panel ----------------------------------------------
 function RevisePanel({ onSubmit, revising }: { onSubmit: (text: string) => void; revising: boolean }) {
   const [text, setText] = useState("");
-
-  const modeLabel = "Replanning your trip…";
-
   return (
     <div style={{
-      marginTop: 54,
-      padding: "32px 36px",
+      marginTop: 54, padding: "32px 36px",
       background: "linear-gradient(135deg, var(--accent-soft) 0%, var(--bg-2) 100%)",
-      border: "1px solid var(--accent)",
-      borderRadius: "var(--r-xl)",
+      border: "1px solid var(--accent)", borderRadius: "var(--r-xl)",
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
         <Icon name="sparkle" size={18} stroke="var(--accent-deep)" />
@@ -393,9 +386,7 @@ function RevisePanel({ onSubmit, revising }: { onSubmit: (text: string) => void;
         disabled={!!revising}
         placeholder="What would you change?"
         onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && text.trim() && !revising) {
-            onSubmit(text.trim());
-          }
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && text.trim() && !revising) onSubmit(text.trim());
         }}
         style={{
           width: "100%", minHeight: 90, padding: "14px 16px", fontSize: 15, lineHeight: 1.5,
@@ -409,7 +400,7 @@ function RevisePanel({ onSubmit, revising }: { onSubmit: (text: string) => void;
         {revising ? (
           <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--accent-deep)", fontSize: 14, fontWeight: 500 }}>
             <div style={{ width: 8, height: 8, borderRadius: 999, background: "var(--accent)", animation: "pulse 1.2s ease-in-out infinite" }} />
-            {modeLabel}
+            Replanning your trip…
           </div>
         ) : (
           <>
@@ -422,8 +413,7 @@ function RevisePanel({ onSubmit, revising }: { onSubmit: (text: string) => void;
                 background: text.trim() ? "var(--ink)" : "var(--bg-3)",
                 color: text.trim() ? "#fff" : "var(--text-3)",
                 border: "none", fontFamily: "inherit",
-                cursor: text.trim() ? "pointer" : "default",
-                transition: "all .2s var(--ease)",
+                cursor: text.trim() ? "pointer" : "default", transition: "all .2s var(--ease)",
               }}
             >
               Re-plan with Breeze <Icon name="sparkle" size={16} />
@@ -447,30 +437,28 @@ interface Props {
 }
 
 export default function ItineraryScreen({ answers, generatedItinerary, onRestart, onUpdate, dark, onToggle }: Props) {
-  const [revising, setRevising] = useState<boolean>(false);
+  const [revising, setRevising] = useState(false);
   const days = generatedItinerary.days ?? [];
   const [activeDay, setActiveDay] = useState(days[0]?.day ?? 1);
-
   const currentDay = days.find((d) => d.day === activeDay) ?? days[0];
 
   const handleRevise = async (feedback: string) => {
     try {
       setRevising(true);
-      const res = await fetch("/api/revise", {
+      const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          feedback,
-          itinerary: generatedItinerary,
-          answers,
-          pool: generatedItinerary.pool ?? [],
+          input_data: buildInputData(answers),
+          user_rejections: feedback,
+          previous_pool: generatedItinerary.pool ?? [],
         }),
       });
       const updated: GeneratedItinerary = await res.json();
       onUpdate(updated);
       setActiveDay(updated.days?.[0]?.day ?? 1);
     } catch {
-      // silently revert on error
+      // silently revert
     } finally {
       setRevising(false);
     }
@@ -487,7 +475,6 @@ export default function ItineraryScreen({ answers, generatedItinerary, onRestart
           <div style={{ opacity: revising ? 0.4 : 1, pointerEvents: revising ? "none" : "auto", transition: "opacity .3s var(--ease)" }}>
             {generatedItinerary.message && (
               <div style={{ padding: "12px 16px", background: "var(--accent-soft)", color: "var(--accent-deep)", borderRadius: "var(--r)", marginBottom: 20, fontSize: 14, fontWeight: 500, border: "1px solid var(--accent)" }}>
-                <Icon name="info" size={16} style={{ display: "inline", verticalAlign: "middle", marginRight: 8 }} />
                 {generatedItinerary.message}
               </div>
             )}

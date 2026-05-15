@@ -4,7 +4,9 @@ export interface Traveler {
 }
 
 export interface TripAnswers {
+  userName: string;
   destination: string;
+  country: string;
   dates: { start: string; end: string; days: number };
   composition: string | null;
   travelers: Traveler[];
@@ -14,6 +16,7 @@ export interface TripAnswers {
 
 export type Screen =
   | "welcome"
+  | "q-name"
   | "q-departure"
   | "q-dates"
   | "q-composition"
@@ -22,30 +25,8 @@ export type Screen =
   | "generating"
   | "itinerary";
 
-// Unified type used across all interest agents
-export interface AttractionItem {
-  id: string;
-  name: string;
-  description: string;
-  address?: string;
-  url?: string;
-  tip?: string;
-  // Concerts
-  date?: string;
-  venue?: string;
-  image?: string;
-  source?: string;
-  // Restaurants
-  cuisine?: string;
-  priceRange?: string;
-}
-
-// Map of interest id → fetched items (kept for GeneratingScreen internal use)
-export type ItineraryData = Record<string, AttractionItem[]>;
-
-// Calendar-based itinerary output from the scheduler
-export interface ItinerarySlot {
-  id?: string;
+// Orchestrator output format
+export interface OrchestratorActivity {
   time: string;
   duration: string;
   title: string;
@@ -54,19 +35,37 @@ export interface ItinerarySlot {
   address?: string;
   price?: string;
   tip?: string;
-  url?: string;
-  isDinner?: boolean;
+  imageurl?: string | null;
 }
 
-export interface ItineraryDay {
+export interface OrchestratorDay {
   day: number;
   date: string;
-  theme: string;
-  slots: ItinerarySlot[];
+  title: string;
+  summary?: string;
+  activities: OrchestratorActivity[];
 }
 
 export interface GeneratedItinerary {
-  days: ItineraryDay[];
-  pool?: unknown[]; // opaque attraction pool passed back to /api/revise
+  days: OrchestratorDay[];
+  pool?: unknown[];
   message?: string;
 }
+
+// Legacy attraction types (kept for internal use)
+export interface AttractionItem {
+  id: string;
+  name: string;
+  description: string;
+  address?: string;
+  url?: string;
+  tip?: string;
+  date?: string;
+  venue?: string;
+  image?: string;
+  source?: string;
+  cuisine?: string;
+  priceRange?: string;
+}
+
+export type ItineraryData = Record<string, AttractionItem[]>;

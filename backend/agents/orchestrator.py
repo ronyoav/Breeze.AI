@@ -145,7 +145,9 @@ async def generate_itinerary(
 
     text = message.content[0].text if message.content else "{}"
     match = _extract_json_object(text)
-    return json.loads(match) if match else {"days": []}
+    result = json.loads(match) if match else {"days": []}
+    result["pool"] = pool
+    return result
 
 
 def _extract_json_object(text: str) -> Optional[str]:
