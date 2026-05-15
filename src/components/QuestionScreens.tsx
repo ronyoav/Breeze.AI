@@ -375,10 +375,8 @@ interface Q1Props {
 }
 
 export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total, dark, onToggle }: Q1Props) {
-  const [cities, setCities] = useState<string[]>(() =>
-    value ? value.split(",").map(s => s.trim()).filter(Boolean) : []
-  );
-  const [inputVal, setInputVal] = useState("");
+  const [confirmed, setConfirmed] = useState(value || "");
+  const [inputVal, setInputVal] = useState(value || "");
   const [suggestions, setSuggestions] = useState<{ name: string; subtitle?: string }[]>([]);
   const [focused, setFocused] = useState(false);
 
@@ -387,10 +385,10 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
 
   // Autocomplete: instant local matches + debounced Nominatim
   useEffect(() => {
-    if (inputVal.length < 2) { setSuggestions([]); return; }
+    if (confirmed || inputVal.length < 2) { setSuggestions([]); return; }
     const lower = inputVal.toLowerCase();
     const local = KNOWN_CITIES
-      .filter(c => c.toLowerCase().startsWith(lower) && !cities.includes(c))
+      .filter(c => c.toLowerCase().startsWith(lower))
       .slice(0, 5)
       .map(name => ({ name }));
     setSuggestions(local);
@@ -407,7 +405,7 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
             name: d.address?.city || d.address?.town || d.address?.village || d.name,
             subtitle: d.address?.country,
           }))
-          .filter(d => d.name && !cities.includes(d.name));
+          .filter(d => d.name);
         setSuggestions(prev => {
           const merged = [...prev];
           for (const r of remote) {
@@ -418,46 +416,48 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
       } catch { /* keep local results */ }
     }, 350);
     return () => clearTimeout(t);
-  }, [inputVal, cities]);
+  }, [inputVal, confirmed]);
 
-  const addCity = (name: string) => {
+  const confirmCity = (name: string) => {
     const trimmed = toTitleCase(name.trim());
-    if (!trimmed || cities.includes(trimmed)) return;
-    const next = [...cities, trimmed];
-    setCities(next);
-    onChange(next.join(", "));
-    setInputVal("");
+    if (!trimmed) return;
+    setConfirmed(trimmed);
+    setInputVal(trimmed);
+    onChange(trimmed);
     setSuggestions([]);
   };
 
-  const removeCity = (name: string) => {
-    const next = cities.filter(c => c !== name);
-    setCities(next);
-    onChange(next.join(", "));
+  const clearCity = () => {
+    setConfirmed("");
+    setInputVal("");
+    onChange("");
+    setSuggestions([]);
   };
 
   const submit = () => {
-    if (inputVal.trim()) addCity(inputVal);
-    if (cities.length > 0 || inputVal.trim()) onAdvance();
+    const city = confirmed || toTitleCase(inputVal.trim());
+    if (!city) return;
+    onChange(city);
+    onAdvance();
   };
 
-  const isNextDisabled = cities.length === 0 && !inputVal.trim();
+  const isNextDisabled = !confirmed && !inputVal.trim();
 
   // Globe
-  const lastCity = cities[cities.length - 1] || "";
   const [liveLocation, setLiveLocation] = useState<[number, number] | undefined>(undefined);
   useEffect(() => {
-    if (!lastCity) { setLiveLocation(undefined); return; }
-    if (COORDINATE_MAP[lastCity]) { setLiveLocation(COORDINATE_MAP[lastCity]); return; }
+    const city = confirmed;
+    if (!city) { setLiveLocation(undefined); return; }
+    if (COORDINATE_MAP[city]) { setLiveLocation(COORDINATE_MAP[city]); return; }
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(lastCity)}&format=json&limit=1`);
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`);
         const data = await res.json();
         if (data?.[0]) setLiveLocation([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
       } catch { /* no globe update */ }
     }, 500);
     return () => clearTimeout(t);
-  }, [lastCity]);
+  }, [confirmed]);
 
   return (
     <QuestionShell
@@ -473,83 +473,81 @@ export function Q_Departure({ value, onChange, onAdvance, onBack, stepIdx, total
       sideElement={<GlobeAnimation location={liveLocation} dark={dark} />}
     >
       <div style={{ maxWidth: 560 }}>
-        {/* Added city chips */}
-        {cities.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
-            {cities.map(city => (
-              <div key={city} style={{
-                display: "flex", alignItems: "center", gap: 8,
-                background: "var(--accent-soft)", color: "var(--accent-deep)",
-                padding: "8px 16px", borderRadius: 999, fontSize: 18, fontWeight: 500,
+        {confirmed ? (
+          /* Confirmed city chip */
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: 10,
+              background: "var(--accent-soft)", color: "var(--accent-deep)",
+              padding: "14px 22px", borderRadius: 999, fontSize: 24, fontWeight: 600,
+            }}>
+              {confirmed}
+              <button onClick={clearCity} style={{
+                background: "transparent", border: "none", color: "var(--accent-deep)",
+                cursor: "pointer", display: "flex", alignItems: "center", padding: 2,
               }}>
-                {city}
-                <button onClick={() => removeCity(city)} style={{
-                  background: "transparent", border: "none", color: "var(--accent-deep)",
-                  cursor: "pointer", display: "flex", alignItems: "center", padding: 2,
-                }}>
-                  <Icon name="x" size={14} />
-                </button>
+                <Icon name="x" size={16} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Input with autocomplete dropdown */
+          <div style={{ position: "relative" }}>
+            <input
+              value={inputVal}
+              onChange={e => setInputVal(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (suggestions.length > 0) confirmCity(suggestions[0].name);
+                  else if (inputVal.trim()) confirmCity(inputVal);
+                }
+              }}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setTimeout(() => setFocused(false), 200)}
+              placeholder="Type a city, e.g. Tel Aviv"
+              autoFocus
+              style={{
+                width: "100%", padding: "18px 24px", fontSize: 28, fontWeight: 500,
+                letterSpacing: "-.02em", background: "var(--bg-2)",
+                border: "1px solid var(--border)", borderRadius: "var(--r-l)",
+                outline: "none", color: "var(--text)", fontFamily: "inherit",
+                boxSizing: "border-box",
+              }}
+            />
+
+            {focused && suggestions.length > 0 && (
+              <div style={{
+                position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0,
+                background: "var(--bg-2)", border: "1px solid var(--border)",
+                borderRadius: "var(--r-l)", overflow: "hidden", zIndex: 20,
+                boxShadow: "0 8px 24px rgba(0,0,0,.08)",
+              }}>
+                {suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    onMouseDown={() => confirmCity(s.name)}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      width: "100%", padding: "13px 20px", textAlign: "left",
+                      background: "transparent", border: "none",
+                      borderBottom: i < suggestions.length - 1 ? "1px solid var(--border)" : "none",
+                      cursor: "pointer", fontFamily: "inherit",
+                    }}
+                  >
+                    <span style={{ fontSize: 17, fontWeight: 500, color: "var(--text)" }}>{s.name}</span>
+                    {s.subtitle && <span style={{ fontSize: 12, color: "var(--text-3)" }}>{s.subtitle}</span>}
+                  </button>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
 
-        {/* Input with autocomplete dropdown */}
-        <div style={{ position: "relative" }}>
-          <input
-            value={inputVal}
-            onChange={e => setInputVal(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                if (inputVal.trim()) addCity(inputVal);
-                else if (cities.length > 0) onAdvance();
-              }
-            }}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setTimeout(() => setFocused(false), 200)}
-            placeholder={cities.length === 0 ? "Type a city, e.g. Tel Aviv" : "Add another city..."}
-            autoFocus
-            style={{
-              width: "100%", padding: "18px 24px", fontSize: 28, fontWeight: 500,
-              letterSpacing: "-.02em", background: "var(--bg-2)",
-              border: "1px solid var(--border)", borderRadius: "var(--r-l)",
-              outline: "none", color: "var(--text)", fontFamily: "inherit",
-              boxSizing: "border-box",
-            }}
-          />
-
-          {focused && suggestions.length > 0 && (
-            <div style={{
-              position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0,
-              background: "var(--bg-2)", border: "1px solid var(--border)",
-              borderRadius: "var(--r-l)", overflow: "hidden", zIndex: 20,
-              boxShadow: "0 8px 24px rgba(0,0,0,.08)",
-            }}>
-              {suggestions.map((s, i) => (
-                <button
-                  key={i}
-                  onMouseDown={() => addCity(s.name)}
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    width: "100%", padding: "13px 20px", textAlign: "left",
-                    background: "transparent", border: "none",
-                    borderBottom: i < suggestions.length - 1 ? "1px solid var(--border)" : "none",
-                    cursor: "pointer", fontFamily: "inherit",
-                  }}
-                >
-                  <span style={{ fontSize: 17, fontWeight: 500, color: "var(--text)" }}>{s.name}</span>
-                  {s.subtitle && <span style={{ fontSize: 12, color: "var(--text-3)" }}>{s.subtitle}</span>}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
         <p style={{ margin: "12px 0 0", fontSize: 13, color: "var(--text-3)" }}>
-          {cities.length === 0
-            ? "Select a suggestion or press Enter to confirm · add multiple cities for a multi-stop trip"
-            : `${cities.length} ${cities.length === 1 ? "city" : "cities"} added · type to add another stop`}
+          {confirmed
+            ? "City selected · press Continue or Enter to proceed"
+            : "Select a suggestion or press Enter to confirm"}
         </p>
       </div>
     </QuestionShell>
