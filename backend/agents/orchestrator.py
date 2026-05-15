@@ -41,7 +41,8 @@ Return ONLY a valid JSON object matching this structure:
           "description": "The exact description provided in the attraction object",
           "address": "The exact address",
           "price": "Estimate the cost based on the budget tier",
-          "tip": "Write a unique, highly personalized pro-tip for this user profile"
+          "tip": "Write a unique, highly personalized pro-tip for this user profile",
+          "imageurl": "The exact image URL provided in the attraction object, or null if not available"
         }
       ]
     }
