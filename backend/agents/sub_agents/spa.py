@@ -17,6 +17,7 @@ You are evaluating spa centers, wellness retreats, and massage studios.
 - BUDGET MATCHING: The user's budget is mapped to a price tier. If budget is 1, search for local, highly-rated affordable massage parlors or day spas. If budget is 3, search for luxury resort spas or high-end wellness retreats.
 - DEMOGRAPHICS: Read the `groupStructure`. If the group includes children, avoid adult-only retreats and suggest family-friendly wellness centers (like thermal baths). If it's a couple, suggest romantic couples massage spots.
 - ENRICHMENT: The `description` field MUST clearly state the signature treatments and atmosphere.
+- IMAGES: You MUST use the `duckduckgo_image` tool to find a relevant image URL for each recommended place and include it in the `imageurl` field.
 """
 
 @traceable(name="Spa Agent", tags=["subagent", "wellness"])
@@ -58,9 +59,10 @@ async def fetch_spa(user_profile: dict) -> list[Attraction]:
         f"Include seasonal availability or booking notes where relevant."
     )
 
+    from utils.tools import SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL
     system_prompt = build_subagent_prompt(user_profile, "spa", SPA_INSTRUCTIONS)
 
-    text = await run_agent_loop(system_prompt, user_message)
+    text = await run_agent_loop(system_prompt, user_message, tools=[SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL])
     json_match = extract_json_object(text)
     
     attractions = []

@@ -12,32 +12,8 @@ You are evaluating beaches and coastal spots.
 - DEMOGRAPHICS: If `groupStructure` includes kids, prioritize safe, family-friendly beaches with shallow water and facilities. If it's a group of young adults, prioritize party beaches or famous surf spots.
 - AMENITIES: Always mention in the `notes` field whether there are bathrooms, food options, or umbrella rentals.
 - ACCESSIBILITY: If the user needs accessibility, avoid beaches that require hiking down a cliff and prioritize ones with boardwalks or paved access.
+- IMAGES: You MUST use the `duckduckgo_image` tool to find a relevant image URL for each recommended place and include it in the `imageurl` field.
 """
-
-async def run_tavily_search(query: str) -> str:
-    """Helper function to actually execute the Tavily search via API."""
-    api_key = os.getenv("API_KEY_TAVILY")
-    if not api_key:
-        return json.dumps({"error": "Tavily API key not found in environment."})
-        
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        res = await client.post(
-            "https://api.tavily.com/search",
-            json={
-                "api_key": api_key,
-                "query": query,
-                "search_depth": "basic",
-                "include_answer": True,
-                "max_results": 5
-            }
-        )
-        res.raise_for_status()
-        data = res.json()
-        
-        return json.dumps({
-            "answer": data.get("answer"),
-            "results": [{"title": r.get("title"), "content": r.get("content")} for r in data.get("results", [])]
-        })
 
 @traceable(name="Beach Subagent", tags=["subagent", "tavily", "tool_use", "beach"])
 async def fetch_beach(user_profile: dict) -> list[Attraction]:
@@ -65,58 +41,14 @@ async def fetch_beach(user_profile: dict) -> list[Attraction]:
     if cached:
         return [Attraction(**a) for a in cached]
 
-    tavily_tool = {
-        "name": "search_tavily",
-        "description": "Searches the web for recent information and recommendations using the Tavily search engine.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "The precise search query, e.g. 'best beaches near Tel Aviv'"}
-            },
-            "required": ["query"]
-        }
-    }
-
     system_prompt = build_subagent_prompt(user_profile, "beach", BEACH_INSTRUCTIONS)
     
-    messages = [{"role": "user", "content": f"Use search_tavily to find the best beaches near: {city}. Then score them and return the strict JSON schema."}]
+    user_message = f"Use search_web to find the best beaches near: {city}. Then score them and return the strict JSON schema."
 
-    response = await async_client.messages.create(
-        model=MODEL_HAIKU,
-        max_tokens=4000,
-        temperature=0.3,
-        system=system_prompt,
-        messages=messages,
-        tools=[tavily_tool]
-    )
-
-    if response.stop_reason == "tool_use":
-        tool_call = next(b for b in response.content if b.type == "tool_use")
-        if tool_call.name == "search_tavily":
-            search_results = await run_tavily_search(tool_call.input["query"])
-            
-            messages.append({"role": "assistant", "content": response.content})
-            messages.append({
-                "role": "user",
-                "content": [
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": tool_call.id,
-                        "content": search_results
-                    }
-                ]
-            })
-
-            response = await async_client.messages.create(
-                model=MODEL_HAIKU,
-                max_tokens=4000,
-                temperature=0.3,
-                system=system_prompt,
-                messages=messages,
-                tools=[tavily_tool]
-            )
-
-    final_text = next(b.text for b in response.content if b.type == "text")
+    from utils.agent_loop import run_agent_loop
+    from utils.tools import SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL
+    
+    final_text = await run_agent_loop(system_prompt, user_message, tools=[SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL])
     json_match = extract_json_object(final_text)
 
     attractions = []

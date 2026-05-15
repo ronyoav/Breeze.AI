@@ -18,6 +18,7 @@ You are evaluating bars, clubs, lounges, and live music venues.
 - AGE DEMOGRAPHICS: Read the `groupStructure`. If the group contains people under 21 (especially in the US), aggressively reject 21+ clubs and bars. Suggest all-ages live music, evening cafes, or family-friendly evening entertainment. If they are 21-25, prioritize high-energy clubs or trendy bars.
 - GROUP MATCHING: If the group relation is "family", avoid wild nightclubs and suggest relaxed lounges or jazz clubs.
 - ENRICHMENT: The `description` field MUST clearly capture the vibe. Tell them exactly what to expect regarding music, crowd, and atmosphere.
+- IMAGES: You MUST use the `duckduckgo_image` tool to find a relevant image URL for each recommended place and include it in the `imageurl` field.
 """
 
 @traceable(name="Nightlife Agent", tags=["subagent", "nightlife"])
@@ -72,14 +73,11 @@ async def fetch_nightlife(user_profile: dict) -> list[Attraction]:
 
 async def _extract_venues(city: str, content_blocks: list[str], system_prompt: str) -> list[Attraction]:
     raw_content = "\n\n---\n\n".join(content_blocks)
-    response = await async_client.messages.create(
-        model=MODEL_HAIKU,
-        max_tokens=4000,
-        system=system_prompt,
-        messages=[{"role": "user", "content": f"Raw search results for nightlife in {city}:\n{raw_content}"}],
-    )
+    user_message = f"Raw search results for nightlife in {city}:\n{raw_content}"
     
-    text = response.content[0].text if response.content else "{}"
+    from utils.agent_loop import run_agent_loop
+    from utils.tools import SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL
+    text = await run_agent_loop(system_prompt, user_message, tools=[SEARCH_TOOL, DUCKDUCKGO_IMAGE_TOOL])
     json_match = extract_json_object(text)
 
     attractions = []
