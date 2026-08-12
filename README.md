@@ -1,5 +1,8 @@
 # Breeze.ai
 
+## Demo
+[![Breeze.ai - Technical Demo](https://img.youtube.com/vi/yXYzudMQ8Ns/maxresdefault.jpg)](https://youtu.be/yXYzudMQ8Ns)
+
 AI-powered travel planning. Answer four questions, pick your interests, and get a full day-by-day itinerary — tuned to what you actually want to do.
 
 ---
